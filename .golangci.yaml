@@ -1,0 +1,89 @@
+version: "2"
+run:
+  #运行并发根据项目大小设定
+  concurrency: 4
+  tests: false
+linters:
+  #  # 禁用所有默认启用的linters
+  #  disable-all: true
+  #  # 仅启用以下linters
+  default: all
+  disable:
+    - wsl_v5
+    - cyclop
+    - depguard
+    - exhaustive
+    - noinlineerr
+    - exhaustruct
+    - forbidigo
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - godot
+    - godox
+    - gosmopolitan
+    - ireturn
+    - lll
+    - mnd
+    - nlreturn
+    - perfsprint
+    - tagalign
+    - varnamelen
+    - wsl
+    - embeddedstructfieldcheck
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true
+    gosec:
+      excludes:
+        - G101
+        - G112
+        - G306
+      severity: low
+      confidence: low
+    staticcheck:
+      checks:
+        - -SA2002
+        - -ST1003
+        - S1002
+        - S1004
+        - S1007
+        - S1009
+        - S1010
+        - S1012
+        - S1019
+        - S1020
+        - S1021
+        - S1024
+        - S1030
+        - SA2*
+        - SA3*
+        - SA4009
+        - SA5*
+        - SA6000
+        - SA6001
+        - SA6005
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

@@ -1,0 +1,67 @@
+services:
+  # MySQL 数据库
+  mysql:
+    container_name: podcast_mysql
+    image: mysql:5.7.18
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=P@ssw0rd
+    restart: always
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test: mysql -uroot -p${MYSQL_PASSWORD} -e "show databases"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 100s
+    networks:
+      - podcast-network
+  # Dgraph 图数据库
+  dgraph:
+    image: dgraph/standalone:latest
+    container_name: podcast-dgraph
+    restart: always
+    ports:
+      - "8080:8080"
+      - "9080:9080"
+    volumes:
+      - dgraph_data:/dgraph
+    networks:
+      - podcast-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Podcast 应用
+  podcast:
+    image: docker.cnb.cool/youcd.online/podcast
+    container_name: podcast-app
+    restart: always
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./config:/app/config
+      - podcast_logs:/var/log/podcast
+    environment:
+      - TZ=Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+      dgraph:
+        condition: service_healthy
+    networks:
+      - podcast-network
+    command: ["./podcast", "-f", "config/config.yaml"]
+
+networks:
+  podcast-network:
+    driver: bridge
+

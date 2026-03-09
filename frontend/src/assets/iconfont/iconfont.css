@@ -1,0 +1,103 @@
+@font-face {
+  font-family: "iconfont"; /* Project id 4176993 */
+  src: url('iconfont.woff2?t=1772451439010') format('woff2'),
+       url('iconfont.woff?t=1772451439010') format('woff'),
+       url('iconfont.ttf?t=1772451439010') format('truetype');
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-zhediemianban:before {
+  content: "\e608";
+}
+
+.icon-template:before {
+  content: "\e631";
+}
+
+.icon-prompt:before {
+  content: "\e647";
+}
+
+.icon-quanping_o:before {
+  content: "\eb99";
+}
+
+.icon-zhinengyouhua:before {
+  content: "\e69a";
+}
+
+.icon-login:before {
+  content: "\e8ef";
+}
+
+.icon-UIicon_weidu:before {
+  content: "\e61d";
+}
+
+.icon-baogao:before {
+  content: "\e811";
+}
+
+.icon-zhongshi:before {
+  content: "\e6c1";
+}
+
+.icon-yidu:before {
+  content: "\e661";
+}
+
+.icon-fall:before {
+  content: "\e743";
+}
+
+.icon-shengyinjingyin:before {
+  content: "\eca9";
+}
+
+.icon-yinliang:before {
+  content: "\e87a";
+}
+
+.icon-zanting:before {
+  content: "\e629";
+}
+
+.icon-24gl-playCircle:before {
+  content: "\ea6e";
+}
+
+.icon-shang:before {
+  content: "\e63c";
+}
+
+.icon-xia:before {
+  content: "\e63d";
+}
+
+.icon-shanchu:before {
+  content: "\e602";
+}
+
+.icon-xiaolian1:before {
+  content: "\e610";
+}
+
+.icon-weixiao1:before {
+  content: "\e634";
+}
+
+.icon-aixin1:before {
+  content: "\e83f";
+}
+
+.icon-laba:before {
+  content: "\e6ec";
+}
+

@@ -1,0 +1,58 @@
+button {
+  border: none;
+  background-color: transparent;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  outline: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  /* 防止点击时出现正方形效果 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none; /* 禁止 iOS 弹出菜单 */
+}
+
+/* 基础按钮样式 */
+.custom-button {
+  text-align: left;
+  width: 200px;
+
+  /*background-color: #3498db; !* 初始背景颜色 *!*/
+  /*color: white; !* 文字颜色 *!*/
+  border: none; /* 移除边框 */
+  padding: 8px 16px; /* 内边距 */
+  font-size: 16px; /* 字体大小 */
+  border-radius: 20px; /* 圆角 */
+  cursor: pointer; /* 鼠标悬停时显示为手型 */
+  transition: background-color 0.3s ease; /* 平滑过渡效果 */
+  white-space: nowrap; /* 禁止换行 */
+  overflow: hidden; /* 隐藏超出的内容 */
+  text-overflow: ellipsis; /* 显示省略号 */
+}
+/* 移动设备下的样式 */
+@media screen and (max-width: 768px) {
+  .custom-button {
+   color: black;
+  }
+}
+
+/* 鼠标悬停时的样式 */
+.custom-button:hover {
+  background-color: #dfe0e8; /* 悬停时颜色变浅 */
+}
+
+/* 点击后的样式 */
+.custom-button:active {
+  background-color: #dfe0e8; /* 点击时颜色更浅 */
+}
+
+/* 保持点击后的浅色状态 */
+.custom-button.clicked {
+  background-color: #dfe0e8; /* 保持浅色 */
+}

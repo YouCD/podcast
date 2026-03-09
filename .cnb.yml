@@ -1,0 +1,17 @@
+# 对所有 tag 生效
+main:
+  # 事件名
+  push:
+  - services:
+      - docker
+    stages:
+      # 同名镜像构建&推送
+      - name: Docker build
+        script: docker build -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH} .
+      - name: Docker push
+        script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH}
+      # 同时推送 latest 标签（可选）
+      - name: Docker tag
+        script: docker tag ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_BRANCH} ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
+      - name: Docker push  latest
+        script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest

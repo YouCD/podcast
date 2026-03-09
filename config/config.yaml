@@ -1,0 +1,67 @@
+database:
+  mysql:
+    host: "podcast_mysql"
+    port: 3306
+    user: "root"
+    password: "P@ssw0rd"
+    dbname: "rss"
+  # 图数据库
+  dgraph: podcast-dgraph:9080
+  # 向量数据库
+  milvus:
+    # 注册地址 https://cloud.zilliz.com/  免费5G空间
+    endpoint: "https://in03-549fdb60364f200.serverless.aws-eu-central-1.cloud.zilliz.com"
+    apiKey: "apiKey"
+    dbName: "db_549fdb60364f200"
+    rssCollection: "rss_20260128"
+    dedupCollection: "dedup_title"
+    dimension: 1024
+    score: 0.78
+# 1. 访问 [ModelScope](https://modelscope.cn/my/access/token) 官网。   `2000/每日`免费
+llm:
+  - apiKey: "token"
+    baseURL: "https://api.xiaomimimo.com/v1"
+    model: "mimo-v2-flash"
+
+vector:
+  # https://bailian.console.aliyun.com/cn-beijing/?tab=model#/model-market/detail/text-embedding-v4  官网。   `embedding` 模型
+  embedding:
+    apiKey: "token"
+    baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    model: "text-embedding-v4"
+
+
+rss:
+  - name: "少数派"
+    url: "https://sspai.com/feed"
+  - name: "月光博客"
+    url: "http://www.williamlong.info/rss.xml"
+  - name: "IT 之家 - IT 资讯"
+    url: "https://rsshub.umzzz.com/ithome/it"
+  - name: "MIT 科技评论 - 本周热榜"
+    url: "https://plink.anyfeeder.com/mittrchina/hot"
+  - name: "IT之家-24 小时最热"
+    url: "https://rsshub.umzzz.com/ithome/ranking/24h"
+
+global:
+  logLevel: "info"
+  logFile: /tmp/podcast.log
+  hostPort: "0.0.0.0:8080"
+  contentLen: 1400
+  token: "token"
+  podcastDir: /tmp/podcast
+report:
+  - schedule: "0 0 * * 1"
+    topic: "本周AI发展趋势"
+mcpProxy:
+  # https://bailian.console.aliyun.com/cn-beijing/?tab=app#/mcp-market/detail/WebSearch   `2000次/每月`免费
+  web_search:
+    headers:
+      Authorization: "Bearer TOKEN"
+      Accept-Encoding: identity # 解决乱码
+    url: "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp"
+
+# 豆包语音播客大模型用于生成播客， https://www.volcengine.com/docs/6561/1668014?lang=zh    `1000000 tokens`免费
+byteDance:
+  appID: appID # 替换为自己的
+  accessToken: accessToken # 替换为自己的
