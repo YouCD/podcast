@@ -3,9 +3,8 @@ package milvus
 import (
 	"context"
 	"fmt"
+	"podcast/pkg/types"
 	"time"
-
-	"podcast/config"
 
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/index"
@@ -26,17 +25,15 @@ func (m *Milvus) Close(ctx context.Context) {
 	}
 }
 
-//nolint:funcorder
-func New(ctx context.Context) *Milvus {
-	endpoint := config.Cfg.Database.Milvus.Endpoint
-	apiKey := config.Cfg.Database.Milvus.APIKey
+// NewMilvus 创建 Milvus 客户端
+func NewMilvus(ctx context.Context, cfg *types.Milvus) *Milvus {
 	m := Milvus{
-		score: config.Cfg.Database.Milvus.Score,
+		score: cfg.Score,
 	}
 	mClient, err := milvusclient.New(ctx, &milvusclient.ClientConfig{
-		Address: endpoint,
-		APIKey:  apiKey,
-		DBName:  config.Cfg.Database.Milvus.DBName,
+		Address: cfg.Endpoint,
+		APIKey:  cfg.APIKey,
+		DBName:  cfg.DBName,
 	})
 	if err != nil {
 		log.WithCtx(ctx).Panic("连接失败:", err)
@@ -119,7 +116,7 @@ func (m *Milvus) CreateDedupCollection(ctx context.Context, collName string) err
 				Name:     "vector",
 				DataType: entity.FieldTypeFloatVector,
 				TypeParams: map[string]string{
-					"dim": cast.ToString(config.Cfg.Database.Milvus.Dimension),
+					"dim": cast.ToString(1024), // 默认维度
 				},
 			},
 			{

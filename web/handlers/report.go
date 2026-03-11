@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"podcast/internal/ai/report/daily"
 	"podcast/internal/service"
+	"podcast/pkg/types"
 	"text/template"
 
 	"github.com/gin-gonic/gin"
@@ -26,11 +27,12 @@ type ReportResponse struct {
 }
 type ReportsHandler struct {
 	reportService *service.ReportService
+	podcastCfg    *types.Podcast
 }
 
 // NewReportsHandler 创建报告处理器
-func NewReportsHandler(reportService *service.ReportService) *ReportsHandler {
-	return &ReportsHandler{reportService: reportService}
+func NewReportsHandler(reportService *service.ReportService, podcastCfg *types.Podcast) *ReportsHandler {
+	return &ReportsHandler{reportService: reportService, podcastCfg: podcastCfg}
 }
 
 // GetReports 获取所有report列表，但不包含LLMResult
@@ -69,7 +71,7 @@ func (r *ReportsHandler) GetLLMResultByID(c *gin.Context) {
 	}
 	if rr.LLMResult == "" {
 		go func() {
-			c2, err := daily.New(c)
+			c2, err := daily.New(c, r.podcastCfg)
 			if err != nil {
 				ErrorWithMessage(c, "Report not found")
 				return
@@ -135,7 +137,7 @@ func (r *ReportsHandler) GenDailyReport(c *gin.Context) {
 	go func() {
 		id := c.Request.Context().Value("request_id").(string)
 		ctx := context.WithValue(context.Background(), "request_id", id)
-		dailyReport, err := daily.New(ctx)
+		dailyReport, err := daily.New(ctx, r.podcastCfg)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("创建每日报告处理器失败: %v", err.Error())
 			return

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"podcast/config"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
@@ -20,9 +19,14 @@ var (
 )
 
 type HTMLTemplateManager struct {
+	ContentLen int
 }
 
-func GetHTMLTemplateManager() *HTMLTemplateManager {
+func GetHTMLTemplateManager(l int) *HTMLTemplateManager {
+	if h != nil {
+		return h
+	}
+	h = &HTMLTemplateManager{ContentLen: l}
 	return h
 }
 
@@ -41,7 +45,7 @@ func (h *HTMLTemplateManager) RenderFromJSON(ctx context.Context, rss *models.Rs
 
 	// 获取模板,模板名称与分类一致
 	genre, _ := dao.NewKeyInfoDao(models.GetDb()).FindByKeynameAndGenre(ctx, rss.Categories, 2)
-	if len([]rune(rss.Content)) < config.Cfg.Global.ContentLen || genre == nil {
+	if len([]rune(rss.Content)) < h.ContentLen || genre == nil {
 		log.WithCtx(ctx).Debugw("renderLlmResult", "templateName", "默认模板", "md5", rss.MD5, "jsonData", jsonData)
 		return h.renderLlmResult(ctx, rss)
 	}

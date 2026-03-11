@@ -29,7 +29,7 @@ func RunModelGenerate(ctx context.Context, msgName string, input []*schema.Messa
 	var llmResult string
 	var success bool
 
-	pool := llm.NewLLMPool()
+	pool := llm.GetLLMPool()
 
 	for attempt := 0; attempt < attemptTotal; attempt++ {
 		// 获取 LLM 实例

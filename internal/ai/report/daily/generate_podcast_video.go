@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"podcast/pkg/types"
 	"strings"
 	"time"
 
-	"podcast/config"
 	"podcast/pkg/byte_dance"
 
 	jsoniter "github.com/json-iterator/go"
@@ -24,15 +24,24 @@ const (
 	apiURL  = `/gradio_api/call/fast_synthesize`
 )
 
-func generatePodcastVideo(ctx context.Context, state *graphState) (*graphState, error) {
+type PodcastConfig struct {
+	PodcastDir           string
+	ByteDanceAppID       string
+	ByteDanceAccessToken string
+}
+
+func generatePodcastVideo(ctx context.Context, cfg *types.Podcast, state *graphState) (*graphState, error) {
 	if state.report.PodcastContent == "" {
 		log.WithCtx(ctx).Warnf("播客文本内容为空")
 		return state, nil
 	}
 	log.WithCtx(ctx).Info("播客音频生成开始")
-	file, err := genPodcastVideo(ctx, state.report.PodcastContent)
+
+	// 构造配置（依赖注入）
+
+	file, err := genPodcastVideo(ctx, cfg, state.report.PodcastContent)
 	if err != nil {
-		log.WithCtx(ctx).Errorf("播客文件生成失败: %s", err)
+		log.WithCtx(ctx).Errorf("播客文件生成失败：%s", err)
 		return state, nil
 	}
 
@@ -180,39 +189,16 @@ func streamResult(ctx context.Context, eventID string) (string, error) {
 	return "", ErrNoAudioURL
 }
 
-func save2File(ctx context.Context, podcastUrl string) (string, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, podcastUrl, nil)
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to download podcast: %w", err)
-	}
-	defer resp.Body.Close()
-	fileName := fmt.Sprintf("%s.wav", time.Now().Format("2006-01-02_15_04_05"))
-	f := path.Join(config.Cfg.Global.PodcastDir, fileName)
-	err = os.MkdirAll(config.Cfg.Global.PodcastDir, 0o755)
-	if err != nil {
-		log.WithCtx(ctx).Error(err)
-	}
-	file, err := os.OpenFile(f, os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		log.WithCtx(ctx).Error(err)
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		log.WithCtx(ctx).Error(err)
-	}
-	return fileName, nil
-}
-func genPodcastVideo(ctx context.Context, data string) (string, error) {
+// genPodcastVideo 生成播客视频文件
+// cfg: 配置对象（依赖注入）
+// data: 播客文本内容
+func genPodcastVideo(ctx context.Context, cfg *types.Podcast, data string) (string, error) {
 	fileName := fmt.Sprintf("%s.mp3", time.Now().Format("2006-01-02_15_04_05"))
-	f := path.Join(config.Cfg.Global.PodcastDir, fileName)
+	f := path.Join(cfg.Dir, fileName)
 	log.WithCtx(ctx).Debugf("fileName: %s", f)
 
-	_ = os.MkdirAll(config.Cfg.Global.PodcastDir, 0o755)
-	err := byte_dance.PodCast(ctx, config.Cfg.ByteDance.AppID, config.Cfg.ByteDance.AccessToken, f, data)
+	_ = os.MkdirAll(cfg.Dir, 0o755)
+	err := byte_dance.PodCast(ctx, cfg.ByteDance.AppID, cfg.ByteDance.AccessToken, f, data)
 	if err != nil {
 		log.WithCtx(ctx).Error(err)
 		return "", err

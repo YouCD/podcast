@@ -13,7 +13,7 @@ import (
 
 func ConversationTitle(ctx context.Context, llm *types.LLMInfo, msg []*types.MessageInfo) (string, error) {
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
-		BaseURL: llm.BaseUrl,
+		BaseURL: llm.BaseURL,
 		APIKey:  llm.ApiKey,
 		Model:   llm.Model,
 	})

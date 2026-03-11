@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"podcast/config"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	"time"
@@ -16,7 +15,7 @@ import (
 )
 
 // deduplicate 去重处理
-func deduplicate(ctx context.Context, state *graphState) (*graphState, error) {
+func deduplicate(ctx context.Context, state *graphState, cfg *types.RagConfig) (*graphState, error) {
 	log.WithCtx(ctx).Info("开始去重处理")
 	output := []*types.RSSItem{}
 	var rssContentDao = dao.NewRssContentDao(models.GetDb())
@@ -48,7 +47,7 @@ func deduplicate(ctx context.Context, state *graphState) (*graphState, error) {
 	}
 	log.WithCtx(ctx).Infow("deduplicate_need_embedding_count", "in_mysql", len(output))
 	// 向量去重处理
-	dedup := embeddingDedup(ctx, output...)
+	dedup := embeddingDedup(ctx, output, cfg)
 	log.WithCtx(ctx).Infow("deduplicate_embedding_count", "in_embedding", len(dedup))
 
 	state.UniqueItems = dedup
@@ -57,9 +56,9 @@ func deduplicate(ctx context.Context, state *graphState) (*graphState, error) {
 
 var cacheStore = cache.New(24*time.Hour, 24*time.Hour)
 
-func embeddingDedup(ctx context.Context, rss ...*types.RSSItem) []*types.RSSItem {
+func embeddingDedup(ctx context.Context, rss []*types.RSSItem, cfg *types.RagConfig) []*types.RSSItem {
 	var items []*types.RSSItem
-	m := milvus.New(ctx)
+	m := milvus.NewMilvus(ctx, cfg.Milvus)
 	defer m.Close(ctx)
 	for _, item := range rss {
 		var vector []float32
@@ -68,16 +67,21 @@ func embeddingDedup(ctx context.Context, rss ...*types.RSSItem) []*types.RSSItem
 			log.WithCtx(ctx).Debugw("embedding_dedup", "MD5", item.MD5, "title", item.Title, "cache", "hit")
 			continue
 		} else {
-			emb, err := embedding.New(ctx, item.Title)
+			embedder, err := embedding.NewEmbedder(ctx, cfg.Embedding)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("embedding_create", "MD5", item.MD5, "title", item.Title, "err", err)
 				continue
 			}
-			vector = emb[0].Embedding
-			cacheStore.Set(item.Title, vector, 24*time.Hour)
+			vectorData, err := embedder.CreateEmbeddings(ctx, item.Title)
+			if err != nil {
+				log.WithCtx(ctx).Errorw("embedding_create", "MD5", item.MD5, "title", item.Title, "err", err)
+				continue
+			}
+			vector = vectorData
+			cacheStore.Set(item.Title, vectorData, 24*time.Hour)
 		}
 
-		dedup, title, score, err := m.DedupSearch(ctx, vector, config.Cfg.Database.Milvus.DedupCollection)
+		dedup, title, score, err := m.DedupSearch(ctx, vector, cfg.Milvus.DedupCollection)
 		if err != nil {
 			log.WithCtx(ctx).Errorw("dedup", "err", err)
 			continue
@@ -86,7 +90,7 @@ func embeddingDedup(ctx context.Context, rss ...*types.RSSItem) []*types.RSSItem
 			log.WithCtx(ctx).Debugw("embedding_dedup", "MD5", item.MD5, "embedding", "hit", "emb_title", title, "src_title", item.Title, "score", score)
 		} else {
 			items = append(items, item)
-			err = m.Insert(ctx, item.Date, item.MD5, item.Title, vector, config.Cfg.Database.Milvus.DedupCollection)
+			err = m.Insert(ctx, item.Date, item.MD5, item.Title, vector, cfg.Milvus.DedupCollection)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("embedding_dedup", "MD5", item.MD5, "title", item.Title, "err", err)
 			} else {

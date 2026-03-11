@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"podcast/config"
+	"podcast/internal/ai/embedding"
+	"podcast/pkg/types"
 	"strings"
 	"sync"
 
 	"podcast/internal/ai/rag"
 	"podcast/pkg/dgraph"
 
+	"github.com/cloudwego/eino-ext/components/embedding/dashscope"
+	milvus2Ret "github.com/cloudwego/eino-ext/components/retriever/milvus2"
 	einomcp "github.com/cloudwego/eino-ext/components/tool/mcp"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -21,7 +24,28 @@ import (
 )
 
 // MilvusSearchTool 向量检索工具
-type MilvusSearchTool struct{}
+type MilvusSearchTool struct {
+	embedder  *dashscope.Embedder
+	retriever *milvus2Ret.Retriever
+}
+
+// NewMilvusSearchTool 创建向量检索工具
+func NewMilvusSearchTool(ctx context.Context, embedderCfg *types.Embedding, cfg *types.Milvus) (*MilvusSearchTool, error) {
+	embedder, err := embedding.NewEmbedder(ctx, embedderCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	retriever, err := rag.NewMilvusRetriever(ctx, embedder.Embedder, 10, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MilvusSearchTool{
+		embedder:  embedder.Embedder,
+		retriever: retriever,
+	}, nil
+}
 
 func (t *MilvusSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	p := schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
@@ -61,18 +85,8 @@ func (t *MilvusSearchTool) InvokableRun(ctx context.Context, argumentsInJSON str
 	}
 
 	log.WithCtx(ctx).Infow("ToolCall", "name", "milvus_search", "args", args, "原因", args.Reason)
-	// 初始化 embedder
-	embedder, err := rag.NewQwenEmbedder(ctx)
-	if err != nil {
-		return "", err
-	}
 
-	retriever, err := rag.NewMilvusRetriever(ctx, embedder, args.TopK)
-	if err != nil {
-		return "", err
-	}
-
-	docs, err := retriever.Retrieve(ctx, args.Query)
+	docs, err := t.retriever.Retrieve(ctx, args.Query)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("Query failed, retrieve err: %v\n", err)
 		return "", err
@@ -171,11 +185,17 @@ var (
 	ts   []tool.BaseTool
 )
 
-func initMcpTool(ctx context.Context) ([]tool.BaseTool, error) {
+// MCPConfig MCP 客户端配置
+type MCPConfig struct {
+	HostPort string
+	Token    string
+}
+
+func initMcpTool(ctx context.Context, cfg *MCPConfig, ragConfig *types.RagConfig) ([]tool.BaseTool, error) {
 	var lastErr error
 
 	once.Do(func() {
-		tr, err := transport.NewStreamableHTTP("http://" + config.Cfg.Global.HostPort + "/mcp?token=" + config.Cfg.Global.Token)
+		tr, err := transport.NewStreamableHTTP("http://" + cfg.HostPort + "/mcp?token=" + cfg.Token)
 		//tr, err := transport.NewStreamableHTTP("https://rss.youcd.online/mcp?token=youcd")
 		if err != nil {
 			log.WithCtx(context.Background()).Errorf("Failed to init SSE transport : %v", err)
@@ -202,17 +222,23 @@ func initMcpTool(ctx context.Context) ([]tool.BaseTool, error) {
 		if err != nil {
 			lastErr = fmt.Errorf("获取MCP工具失败: %w", err)
 		}
-		d, err := dgraph.New()
+		d, err := dgraph.New(ragConfig.DgraphHost)
 		if err != nil {
 			lastErr = fmt.Errorf("初始化DGraph客户端失败: %w", err)
 		}
 
-		// 初始化工具
+		// 初始化工具 - 使用依赖注入
+		milvusTool, err := NewMilvusSearchTool(ctx, ragConfig.Embedding, ragConfig.Milvus)
+		if err != nil {
+			lastErr = fmt.Errorf("初始化 Milvus 检索工具失败：%w", err)
+			return
+		}
+
 		tools = append(tools,
 			&DGraphQueryTool{
 				d: d,
 			},
-			&MilvusSearchTool{},
+			milvusTool,
 		)
 		ts = tools
 	})

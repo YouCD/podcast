@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"podcast/config"
 	"time"
 
 	"podcast/internal/ai/milvus"
@@ -24,7 +23,7 @@ type graphState struct {
 	Errors         []error
 }
 
-func buildRSSWorkflow() *compose.Graph[[]*types.RSSSource, []*types.RSSItem] {
+func buildRSSWorkflow(cfg *types.RagConfig) *compose.Graph[[]*types.RSSSource, []*types.RSSItem] {
 	graph := compose.NewGraph[[]*types.RSSSource, []*types.RSSItem]()
 	// 节点 1: RSS 获取
 	_ = graph.AddLambdaNode("fetch_rss", compose.InvokableLambda(fetchFeeds))
@@ -32,8 +31,10 @@ func buildRSSWorkflow() *compose.Graph[[]*types.RSSSource, []*types.RSSItem] {
 	// 节点 2: 日期过滤
 	_ = graph.AddLambdaNode("filter_today", compose.InvokableLambda(filterToday))
 
-	// 节点 3: 去重
-	_ = graph.AddLambdaNode("deduplicate", compose.InvokableLambda(deduplicate))
+	// 节点 3: 去重（使用闭包注入配置）
+	_ = graph.AddLambdaNode("deduplicate", compose.InvokableLambda(func(ctx context.Context, state *graphState) (*graphState, error) {
+		return deduplicate(ctx, state, cfg)
+	}))
 
 	// 节点 4: 并行分类处理
 	_ = graph.AddLambdaNode("categorization", compose.InvokableLambda(categorization))
@@ -45,7 +46,9 @@ func buildRSSWorkflow() *compose.Graph[[]*types.RSSSource, []*types.RSSItem] {
 	_ = graph.AddLambdaNode("dgraph", compose.InvokableLambda(dgraph))
 
 	// 节点 8: 保存
-	_ = graph.AddLambdaNode("save", compose.InvokableLambda(save))
+	_ = graph.AddLambdaNode("save", compose.InvokableLambda(func(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, error) {
+		return save(ctx, rssItems, cfg)
+	}))
 
 	// 编排
 	_ = graph.AddEdge(compose.START, "fetch_rss")
@@ -59,18 +62,18 @@ func buildRSSWorkflow() *compose.Graph[[]*types.RSSSource, []*types.RSSItem] {
 	return graph
 }
 
-func New(ctx context.Context) (compose.Runnable[[]*types.RSSSource, []*types.RSSItem], error) {
-	// 构建工作流
-	workflow := buildRSSWorkflow()
+func New(ctx context.Context, cfg *types.RagConfig) (compose.Runnable[[]*types.RSSSource, []*types.RSSItem], error) {
+	// 构建工作流（注入配置）
+	workflow := buildRSSWorkflow(cfg)
 	// 编译（启用流式处理和回调）
 	runnable, err := workflow.Compile(ctx)
 	if err != nil {
 		log.WithCtx(ctx).Error(err)
-		return nil, fmt.Errorf("编译工作流失败: %w", err)
+		return nil, fmt.Errorf("编译工作流失败：%w", err)
 	}
-	m := milvus.New(ctx)
+	m := milvus.NewMilvus(ctx, cfg.Milvus)
 	defer m.Close(ctx)
-	data, err := m.Query24HData(ctx, config.Cfg.Database.Milvus.DedupCollection)
+	data, err := m.Query24HData(ctx, cfg.Milvus.DedupCollection)
 	if err == nil {
 		for title, value := range data {
 			cacheStore.Set(title, value, time.Hour*24)

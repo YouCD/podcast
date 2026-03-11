@@ -2,8 +2,7 @@ package rag
 
 import (
 	"context"
-
-	"podcast/config"
+	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/components/embedding/dashscope"
 	"github.com/cloudwego/eino-ext/components/indexer/milvus2"
@@ -11,11 +10,17 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
+// MilvusIndexerConfig Milvus Indexer 配置
+type MilvusIndexerConfig struct {
+	ClientConfig *types.Milvus
+	Collection   string
+}
+
 // NewMilvusIndexer 创建 redis indexer
-func NewMilvusIndexer(ctx context.Context, embedder *dashscope.Embedder) (*milvus2.Indexer, error) {
+func NewMilvusIndexer(ctx context.Context, embedder *dashscope.Embedder, cfg MilvusIndexerConfig) (*milvus2.Indexer, error) {
 	indexer, err := milvus2.NewIndexer(ctx, &milvus2.IndexerConfig{
-		ClientConfig: getMlvusClientConfig(),
-		Collection:   config.Cfg.Database.Milvus.RssCollection,
+		ClientConfig: getMilvusClientConfig(cfg.ClientConfig),
+		Collection:   cfg.Collection,
 		Vector: &milvus2.VectorConfig{
 			Dimension:    1024, // Match your embedding model dimension
 			MetricType:   milvus2.COSINE,

@@ -25,7 +25,7 @@ func NewChatModel(ctx context.Context, llmInfo *types.LLMInfo, responseFormat op
 	//t := float32(0.3)
 	cfg := &qwen.ChatModelConfig{
 		APIKey:  llmInfo.ApiKey,
-		BaseURL: llmInfo.BaseUrl,
+		BaseURL: llmInfo.BaseURL,
 		Model:   llmInfo.Model,
 		ResponseFormat: &openai.ChatCompletionResponseFormat{
 			Type: responseFormat,

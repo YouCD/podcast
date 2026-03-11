@@ -2,10 +2,8 @@ package daily
 
 import (
 	"context"
-	"fmt"
 	"podcast/config"
 	"podcast/internal/database/models"
-	"testing"
 
 	"github.com/youcd/toolkit/log"
 )
@@ -21,16 +19,4 @@ func init() {
 	//if err := pkg.InitRedisClient(); err != nil {
 	//	log.Errorf("警告: Redis初始化失败: %v", err)
 	//}
-}
-
-func TestNew(t *testing.T) {
-	c, err := New(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := c.Invoke(context.Background(), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(data.report)
 }

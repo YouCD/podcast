@@ -3,20 +3,21 @@ package workflow
 import (
 	"context"
 	"fmt"
-
 	"podcast/internal/ai/llm"
+	"podcast/pkg/types"
+
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
 )
 
-func saveToMilvus(ctx context.Context, rss *models.RssContent) error {
-	llmPool := llm.NewLLMPool()
+func saveToMilvus(ctx context.Context, rss *models.RssContent, cfg *types.RagConfig) error {
+	llmPool := llm.GetLLMPool()
 	llmInfo, err := llmPool.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("get llm error: %w", err)
 	}
 	defer llmPool.Put(ctx, llmInfo)
-	engine, err := rag.NewEngine(ctx, llmInfo)
+	engine, err := rag.NewEngine(ctx, llmInfo, cfg)
 	if err != nil {
 		return fmt.Errorf("new engine error: %w", err)
 	}

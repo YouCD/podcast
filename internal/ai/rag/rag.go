@@ -2,9 +2,9 @@ package rag
 
 import (
 	"context"
+	"podcast/internal/ai/embedding"
 	"strings"
 
-	"podcast/config"
 	"podcast/internal/database/models"
 	"podcast/pkg"
 	"podcast/pkg/types"
@@ -51,15 +51,15 @@ type Engine struct {
 }
 
 // NewEngine 创建 rag 引擎
-func NewEngine(ctx context.Context, llmInfo *types.LLMInfo) (*Engine, error) {
+func NewEngine(ctx context.Context, llmInfo *types.LLMInfo, cfg *types.RagConfig) (*Engine, error) {
 	// 初始化 redis
-	milvusClient, err := milvusclient.New(ctx, getMlvusClientConfig())
+	milvusClient, err := milvusclient.New(ctx, getMilvusClientConfig(cfg.Milvus))
 	if err != nil {
 		return nil, err
 	}
 
 	// 初始化 embedder
-	embedder, err := NewQwenEmbedder(ctx)
+	embedder, err := embedding.NewEmbedder(ctx, cfg.Embedding)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +89,16 @@ func NewEngine(ctx context.Context, llmInfo *types.LLMInfo) (*Engine, error) {
 	}
 
 	// 初始化 retriever
-	retriever, err := NewMilvusRetriever(ctx, embedder, 10)
+	retriever, err := NewMilvusRetriever(ctx, embedder.Embedder, 10, cfg.Milvus)
 	if err != nil {
 		return nil, err
 	}
 
 	// 初始化 indexer
-	indexer, err := NewMilvusIndexer(ctx, embedder)
+	indexer, err := NewMilvusIndexer(ctx, embedder.Embedder, MilvusIndexerConfig{
+		ClientConfig: cfg.Milvus,
+		Collection:   cfg.Milvus.RssCollection,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +111,7 @@ func NewEngine(ctx context.Context, llmInfo *types.LLMInfo) (*Engine, error) {
 	}
 
 	return &Engine{
-		Dimension:    config.Cfg.Database.Milvus.Dimension,
+		Dimension:    1024, // 默认维度
 		milvusClient: milvusClient,
 		FileLoader:   fileLoader,
 		Splitter:     spliter,

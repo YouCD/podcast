@@ -7,6 +7,7 @@ import (
 	"podcast/config"
 	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
+	"podcast/pkg/types"
 
 	"github.com/youcd/toolkit/log"
 )
@@ -19,13 +20,35 @@ func main() {
 	log.WithCtx(context.Background()).Infof("%#v", c)
 
 	ctx := context.Background()
-	llmPool := llm.NewLLMPool()
+	// 转换 LLM 配置
+	llmInfos := make([]*types.LLMInfo, len(c.LLM))
+	for i, llmCfg := range c.LLM {
+		llmInfos[i] = &types.LLMInfo{
+			ID:      int64(i),
+			ApiKey:  llmCfg.ApiKey,
+			Model:   llmCfg.Model,
+			BaseUrl: llmCfg.BaseURL,
+		}
+	}
+	llmPool := llm.NewLLMPool(llmInfos)
 	get, err := llmPool.Get(ctx)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("Get error: %w", err)
 		return
 	}
-	ragCli, err := rag.NewEngine(ctx, get)
+	ragCfg := rag.EngineConfig{
+		Milvus: rag.MilvusClientConfig{
+			Address: c.Database.Milvus.Endpoint,
+			APIKey:  c.Database.Milvus.APIKey,
+			DBName:  c.Database.Milvus.DBName,
+		},
+		Embedding: rag.EmbeddingConfig{
+			APIKey: c.Vector.Embedding.APIKey,
+			Model:  c.Vector.Embedding.Model,
+		},
+		Collection: c.Database.Milvus.RssCollection,
+	}
+	ragCli, err := rag.NewEngine(ctx, get, ragCfg)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("NewEngine error: %w", err)
 		return

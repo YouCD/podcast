@@ -5,8 +5,9 @@ import (
 	"os"
 	"podcast/config"
 	"podcast/internal/ai/llm"
+	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
-	"podcast/pkg/rag"
+	"podcast/pkg/types"
 	"sync"
 
 	"github.com/youcd/toolkit/log"
@@ -20,14 +21,44 @@ func main() {
 		panic(err)
 	}
 	log.WithCtx(ctx).Infof("%#v", c)
-	models.Init()
-	llmPool := llm.NewLLMPool()
+	log.WithCtx(ctx).Infof("%#v", c)
+	_, err = models.Init(c)
+	if err != nil {
+		panic(err)
+	}
+
+	// 转换 LLM 配置
+	llmInfos := make([]*types.LLMInfo, len(c.LLM))
+	for i, llmCfg := range c.LLM {
+		llmInfos[i] = &types.LLMInfo{
+			ID:      int64(i),
+			ApiKey:  llmCfg.ApiKey,
+			Model:   llmCfg.Model,
+			BaseUrl: llmCfg.BaseURL,
+		}
+	}
+	llmPool := llm.NewLLMPool(llmInfos)
 	llmInfo, err := llmPool.Get(ctx)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("Get error: %w", err)
 		return
 	}
-	engine, err := rag.NewEngine(ctx, llmInfo)
+
+	// 创建 RAG 引擎配置
+	ragCfg := rag.EngineConfig{
+		Milvus: rag.MilvusClientConfig{
+			Address: c.Database.Milvus.Endpoint,
+			APIKey:  c.Database.Milvus.APIKey,
+			DBName:  c.Database.Milvus.DBName,
+		},
+		Embedding: rag.EmbeddingConfig{
+			APIKey: c.Vector.Embedding.APIKey,
+			Model:  c.Vector.Embedding.Model,
+		},
+		Collection: c.Database.Milvus.RssCollection,
+	}
+
+	engine, err := rag.NewEngine(ctx, llmInfo, ragCfg)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("NewEngine error: %w", err)
 		return

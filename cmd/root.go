@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"podcast/pkg/types"
 	"syscall"
 	"time"
 
@@ -63,12 +64,16 @@ var rootCmd = &cobra.Command{
 		// 启动Rss定时任务
 		log.WithCtx(cmd.Context()).Info("starting RSS cron job...")
 		go func() {
-			cron.StartRSSCronJob(ctx)
+			cron.StartRSSCronJob(ctx, &types.RagConfig{
+				Milvus:     config.Cfg.Database.Milvus,
+				Embedding:  config.Cfg.Vector.Embedding,
+				DgraphHost: config.Cfg.Database.Dgraph,
+			}, config.Cfg.RSS)
 			// 启动报告定时任务
-			cron.StartReportJob(ctx)
+			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast)
 		}()
 		// 设置路由（依赖注入：cfg + db -> container -> router）
-		container := app.New(loadedCfg, loadedDB)
+		container := app.New(ctx, loadedCfg, loadedDB)
 		r := routes.SetupRouter(container)
 		// 在 goroutine 中启动服务
 		srv := &http.Server{

@@ -3,6 +3,8 @@ package routes
 import (
 	"embed"
 	"net/http"
+	"podcast/internal/ai/agent"
+	"podcast/pkg/types"
 	"strings"
 
 	"podcast/internal/ai/mcp"
@@ -29,21 +31,27 @@ func StaticServe(fs embed.FS) gin.HandlerFunc {
 func SetupRouter(container *app.Container) *gin.Engine {
 	r := gin.Default()
 
-	rssHandler := handlers.NewRssHandler(container.RssSvc)
+	rssHandler := handlers.NewRssHandler(container.RssSvc, container.Cfg.Global.ContentLen, container.Cfg.Database.Dgraph)
 	userHandler := handlers.NewUserHandler(container.UserSvc)
-	reportsHandler := handlers.NewReportsHandler(container.ReportSvc)
+	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast)
 	keyinfosHandler := handlers.NewKeyInfoHandler(container.KeyInfoSvc)
-	chatHandler := handlers.NewChatHandler(container.Chat)
+	chatHandler := handlers.NewChatHandler(container.Chat, &agent.RAGAgentConfig{
+		MCP:       container.MCPConfig,
+		RagConfig: &types.RagConfig{Embedding: container.Cfg.Vector.Embedding, Milvus: container.Cfg.Database.Milvus},
+	})
 	promptHandler := handlers.NewPromptHandler(container.PromptSvc)
 	templateHandler := handlers.NewTemplateHandler(container.TemplateSvc)
-
+	ragCfg := &types.RagConfig{
+		Milvus:    container.Cfg.Database.Milvus,
+		Embedding: container.Cfg.Vector.Embedding,
+	}
 	token := ""
 	logLevel := "info"
 	if container.Cfg != nil && container.Cfg.Global != nil {
 		token = container.Cfg.Global.Token
 		logLevel = container.Cfg.Global.LogLevel
 	}
-	mcp.NewMCPServer(token).RunWithGin(r)
+	mcp.NewMCPServer(token, ragCfg, container.Cfg.MCPProxy).RunWithGin(r)
 	r.Use(StaticServe(dist.Dist))
 	r.Use(handlers.RequestIDMiddleware())
 	r.Use(handlers.CorsMiddleware())
@@ -64,8 +72,6 @@ func SetupRouter(container *app.Container) *gin.Engine {
 	r.GET("/api/feed/read24h", rssHandler.GetRss24H)
 	r.GET("/api/feed/status", rssHandler.Status)
 	r.GET("/api/feed/not_read", rssHandler.NotRead)
-
-	r.GET("/api/graph/", handlers.Graph)
 
 	// 用户登录接口 - 不需要认证
 	user := r.Group("/api/user")

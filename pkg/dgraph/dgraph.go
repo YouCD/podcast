@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"podcast/config"
-
 	"podcast/pkg/types"
 
 	"github.com/dgraph-io/dgo/v250"
@@ -292,19 +290,14 @@ type Dgraph struct {
 	client *dgo.Dgraph
 }
 
-func New() (*Dgraph, error) {
-	client, err := dgo.Open(fmt.Sprintf("dgraph://%s", config.Cfg.Database.Dgraph))
+func New(host string) (*Dgraph, error) {
+	client, err := dgo.Open(fmt.Sprintf("dgraph://%s", host))
 	if err != nil {
 		return nil, err
 	}
 
 	d := &Dgraph{client: client}
 
-	//// 在初始化时设置一次 Schema
-	//ctx := ctx
-	//if err := d.client.SetSchema(ctx, schema); err != nil {
-	//	return nil, fmt.Errorf("failed to set initial schema: %w", err)
-	//}
 	return d, nil
 }
 func (d *Dgraph) Init(ctx context.Context) error {

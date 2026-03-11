@@ -1,7 +1,12 @@
 package app
 
 import (
+	"context"
 	"podcast/config"
+	"podcast/internal/ai/agent"
+	"podcast/internal/ai/embedding"
+	"podcast/internal/ai/llm"
+	"podcast/internal/ai/milvus"
 	"podcast/internal/database/dao"
 	"podcast/internal/service"
 
@@ -23,10 +28,17 @@ type Container struct {
 	ReportSvc   *service.ReportService
 	PromptSvc   *service.PromptService
 	TemplateSvc *service.TemplateService
+	// AI 组件
+	Embedding *embedding.Embedder
+	LLMPool   *llm.LLMPool
+	Milvus    *milvus.Milvus
+
+	// RAG Agent 配置
+	MCPConfig *agent.MCPConfig
 }
 
 // New 从配置与 DB 构建容器（DAO、Service 均通过构造函数注入）
-func New(cfg *config.Config, db *gorm.DB) *Container {
+func New(ctx context.Context, cfg *config.Config, db *gorm.DB) *Container {
 	c := &Container{Cfg: cfg, DB: db}
 
 	c.User = dao.NewUserDao(db)
@@ -43,7 +55,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	}
 	podcastDir := ""
 	if cfg.Global != nil {
-		podcastDir = cfg.Global.PodcastDir
+		podcastDir = cfg.Podcast.Dir
 	}
 
 	c.UserSvc = service.NewUserService(c.User, token)
@@ -53,5 +65,20 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	c.PromptSvc = service.NewPromptService(c.KeyInfoSvc)
 	c.TemplateSvc = service.NewTemplateService(c.KeyInfoSvc)
 
+	// 初始化 AI 组件
+	emb, err := embedding.NewEmbedder(ctx, cfg.Vector.Embedding)
+	if err != nil {
+		panic(err)
+	}
+	c.Embedding = emb
+
+	// 转换 LLM 配置
+	c.LLMPool = llm.InitLLMPool(cfg.LLM)
+
+	c.Milvus = milvus.NewMilvus(context.Background(), cfg.Database.Milvus)
+	c.MCPConfig = &agent.MCPConfig{
+		HostPort: cfg.Global.HostPort,
+		Token:    cfg.Global.Token,
+	}
 	return c
 }

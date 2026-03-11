@@ -59,11 +59,11 @@ func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time
 		backoff = defaultBackoff
 	}
 
-	// 创建RAG引擎
+	// 创建 RAG 引擎
 	m := &retryChatModel{
 		maxRetry: maxRetry,
 		backoff:  backoff,
-		llmPool:  llm.NewLLMPool(),
+		llmPool:  llm.GetLLMPool(),
 	}
 	// 构建ReAct Agent
 	llmInfo, err := m.llmPool.Get(ctx)

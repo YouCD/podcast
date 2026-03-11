@@ -27,7 +27,6 @@ vector:
   # https://bailian.console.aliyun.com/cn-beijing/?tab=model#/model-market/detail/text-embedding-v4  官网。   `embedding` 模型
   embedding:
     apiKey: "token"
-    baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model: "text-embedding-v4"
 
 
@@ -62,6 +61,8 @@ mcpProxy:
     url: "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp"
 
 # 豆包语音播客大模型用于生成播客， https://www.volcengine.com/docs/6561/1668014?lang=zh    `1000000 tokens`免费
-byteDance:
-  appID: appID # 替换为自己的
-  accessToken: accessToken # 替换为自己的
+podcast:
+  dir: /tmp/podcast
+  byteDance:
+    appID: appID # 替换为自己的
+    accessToken: accessToken # 替换为自己的

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"podcast/config"
 	"podcast/pkg/types"
 
 	"github.com/youcd/toolkit/log"
@@ -37,22 +36,15 @@ type llmEntry struct {
 	key  string
 }
 
-func NewLLMPool() *LLMPool {
+func InitLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
 	once.Do(func() {
-		llmConfigs := config.Cfg.LLM
 		entries := make([]*llmEntry, 0, len(llmConfigs))
 		limiters := make(map[string]*rate.Limiter)
-
-		for i, cfg := range llmConfigs {
+		for _, cfg := range llmConfigs {
 			key := fmt.Sprintf("%s|%s", cfg.Model, cfg.BaseURL)
 			entries = append(entries, &llmEntry{
-				info: &types.LLMInfo{
-					ID:      int64(i),
-					ApiKey:  cfg.ApiKey,
-					Model:   cfg.Model,
-					BaseUrl: cfg.BaseURL,
-				},
-				key: key,
+				info: cfg,
+				key:  key,
 			})
 			// 每个提供商独立限速：10 QPS，突发 5
 			limiters[key] = rate.NewLimiter(rate.Every(100*time.Millisecond), 10)
@@ -68,10 +60,14 @@ func NewLLMPool() *LLMPool {
 			limiters: limiters,
 			// 并发度设为 2*len(entries)，既充分利用又不打满
 			sem:       semaphore.NewWeighted(int64(len(entries) * 2)),
-			cooling:   &sync.Map{},   // key -> time.Time (frozen until)
+			cooling:   &sync.Map{},
 			baseDelay: 4 * time.Hour, // 基础冷却 1h
 		}
 	})
+	return llmPool
+}
+
+func GetLLMPool() *LLMPool {
 	return llmPool
 }
 

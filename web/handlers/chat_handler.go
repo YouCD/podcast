@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"podcast/internal/ai/agent"
 
 	"podcast/internal/ai/llm"
 	"podcast/internal/database/models"
@@ -16,11 +17,12 @@ import (
 // (原 ChatRecordsHandler)
 type ChatHandler struct {
 	chatService *service.ChatService
+	ragCfg      *agent.RAGAgentConfig
 }
 
 // NewChatHandler 创建新的聊天处理器
-func NewChatHandler(chatService *service.ChatService) *ChatHandler {
-	return &ChatHandler{chatService: chatService}
+func NewChatHandler(chatService *service.ChatService, ragCfg *agent.RAGAgentConfig) *ChatHandler {
+	return &ChatHandler{chatService: chatService, ragCfg: ragCfg}
 }
 
 // GetChatHistory 根据会话ID获取聊天记录
@@ -178,7 +180,7 @@ func (h *ChatHandler) ChangeTitle(c *gin.Context) {
 	}
 
 	// 2. 调用 LLM 生成标题
-	pool := llm.NewLLMPool()
+	pool := llm.GetLLMPool()
 	llmInfo, err := pool.Get(c)
 	if err != nil {
 		ErrorWithMessage(c, "Failed to get LLM info: "+err.Error())

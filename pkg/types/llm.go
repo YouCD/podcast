@@ -8,14 +8,14 @@ type LLMInfo struct {
 	ID      int64
 	ApiKey  string `json:"api_key"`
 	Model   string `json:"model"`
-	BaseUrl string `json:"base_url"`
+	BaseURL string `json:"base_url"`
 }
 
 func (m *LLMInfo) GetModelName() string {
 	return m.Model
 }
 func (m *LLMInfo) GetBaseURL() string {
-	parse, _ := url.Parse(m.BaseUrl)
+	parse, _ := url.Parse(m.BaseURL)
 	return parse.Host
 }
 

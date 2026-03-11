@@ -30,11 +30,13 @@ type RssServiceProvider interface {
 // RssHandler RSS/Feed 处理器
 type RssHandler struct {
 	rssService *service.RssService
+	contentLen int
+	dgraphHost string
 }
 
 // NewRssHandler 创建 RSS 处理器
-func NewRssHandler(rssService *service.RssService) *RssHandler {
-	return &RssHandler{rssService: rssService}
+func NewRssHandler(rssService *service.RssService, contentLen int, dgraphHost string) *RssHandler {
+	return &RssHandler{rssService: rssService, contentLen: contentLen, dgraphHost: dgraphHost}
 }
 
 // GetRssService 实现 RssServiceProvider
@@ -165,14 +167,14 @@ func (r *RssHandler) GetLLMHTMLByID(c *gin.Context) {
 		return
 	}
 
-	htmlStr, err := template.GetHTMLTemplateManager().RenderFromJSON(c, rss)
+	htmlStr, err := template.GetHTMLTemplateManager(r.contentLen).RenderFromJSON(c, rss)
 	if err != nil {
 		Success(c, gin.H{"current": rss, "next": nil})
 		return
 	}
 
 	current := toRssResponse(rss, htmlStr)
-	resp, err := dgraphResp(c, rss.Dgraph)
+	resp, err := r.dgraphResp(c, rss.Dgraph)
 	if err != nil {
 		log.WithCtx(c).Errorw("dgraph", "error", err)
 	}
@@ -187,11 +189,11 @@ func (r *RssHandler) GetLLMHTMLByID(c *gin.Context) {
 	}
 
 	if next != nil {
-		nextHtmlStr, err := template.GetHTMLTemplateManager().RenderFromJSON(c, next)
+		nextHtmlStr, err := template.GetHTMLTemplateManager(r.contentLen).RenderFromJSON(c, next)
 		if err == nil {
 			nextItem := toRssResponse(next, nextHtmlStr)
 
-			resp, err = dgraphResp(c, next.Dgraph)
+			resp, err = r.dgraphResp(c, next.Dgraph)
 			if err != nil {
 				log.WithCtx(c).Warnw("dgraph", "error", err)
 			}
@@ -206,7 +208,7 @@ func (r *RssHandler) GetLLMHTMLByID(c *gin.Context) {
 	Success(c, gin.H{"current": current, "next": nil})
 }
 
-func dgraphResp(ctx context.Context, dgraphStr string) (*types.DgraphResp, error) {
+func (r *RssHandler) dgraphResp(ctx context.Context, dgraphStr string) (*types.DgraphResp, error) {
 	var payload types.DgraphPayload
 	err := json.Unmarshal([]byte(dgraphStr), &payload)
 	if err != nil {
@@ -214,7 +216,7 @@ func dgraphResp(ctx context.Context, dgraphStr string) (*types.DgraphResp, error
 		return nil, fmt.Errorf("解析Dgraph数据失败: %v", err)
 	}
 
-	d, err := dgraph.New()
+	d, err := dgraph.New(r.dgraphHost)
 	if err != nil {
 		log.WithCtx(ctx).Errorw("dgraph", "error", err)
 		return nil, fmt.Errorf("创建Dgraph客户端失败: %v", err)

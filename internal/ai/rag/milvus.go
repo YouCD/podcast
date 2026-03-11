@@ -1,15 +1,15 @@
 package rag
 
 import (
-	"podcast/config"
+	"podcast/pkg/types"
 
 	"github.com/milvus-io/milvus/client/v2/milvusclient"
 )
 
-func getMlvusClientConfig() *milvusclient.ClientConfig {
+func getMilvusClientConfig(cfg *types.Milvus) *milvusclient.ClientConfig {
 	return &milvusclient.ClientConfig{
-		Address: config.Cfg.Database.Milvus.Endpoint,
-		APIKey:  config.Cfg.Database.Milvus.APIKey,
-		DBName:  config.Cfg.Database.Milvus.DBName,
+		Address: cfg.Endpoint,
+		APIKey:  cfg.APIKey,
+		DBName:  cfg.DBName,
 	}
 }

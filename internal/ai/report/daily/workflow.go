@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"podcast/internal/database/models"
+	"podcast/pkg/types"
 	"time"
 
 	"github.com/cloudwego/eino/compose"
@@ -19,7 +20,7 @@ type graphState struct {
 	isNewReport bool
 }
 
-func buildDailyWorkflow() *compose.Graph[int, *graphState] {
+func buildDailyWorkflow(cfg *types.Podcast) *compose.Graph[int, *graphState] {
 	graph := compose.NewGraph[int, *graphState]()
 
 	// 节点 1: 创建报告对象
@@ -38,7 +39,9 @@ func buildDailyWorkflow() *compose.Graph[int, *graphState] {
 	_ = graph.AddLambdaNode("generate_podcast_content", compose.InvokableLambda(generatePodcastContent))
 
 	// 节点 6: 生成Podcast播客音频
-	_ = graph.AddLambdaNode("generate_podcast_video", compose.InvokableLambda(generatePodcastVideo))
+	_ = graph.AddLambdaNode("generate_podcast_video", compose.InvokableLambda(func(ctx context.Context, state *graphState) (*graphState, error) {
+		return generatePodcastVideo(ctx, cfg, state)
+	}))
 
 	// 节点 7: 保存report
 	_ = graph.AddLambdaNode("save_report", compose.InvokableLambda(saveReport))
@@ -68,9 +71,9 @@ func buildDailyWorkflow() *compose.Graph[int, *graphState] {
 
 	return graph
 }
-func New(ctx context.Context) (compose.Runnable[int, *graphState], error) {
+func New(ctx context.Context, cfg *types.Podcast) (compose.Runnable[int, *graphState], error) {
 	// 构建工作流
-	workflow := buildDailyWorkflow()
+	workflow := buildDailyWorkflow(cfg)
 	// 编译（启用流式处理和回调）
 	runnable, err := workflow.Compile(ctx)
 	if err != nil {

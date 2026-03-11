@@ -14,7 +14,7 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
-func save(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, error) {
+func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig) ([]*types.RSSItem, error) {
 	log.WithCtx(ctx).Info("开始保存到数据库")
 	var milvusData []*models.RssContent
 	var dbData []*models.RssContent
@@ -77,7 +77,7 @@ func save(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, err
 		wg.Add(1) // 每个 goroutine 启动前增加计数
 		go func(item *models.RssContent) {
 			defer wg.Done() // 每个 goroutine 结束后减少计数
-			err := saveToMilvus(ctx, item)
+			err := saveToMilvus(ctx, item, cfg)
 			if err != nil {
 				log.WithCtx(ctx).Errorf("保存RSS项目到 Milvus,item :%v  err: %v", item, err)
 			}
@@ -85,7 +85,7 @@ func save(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, err
 	}
 	wg.Wait() // 等待所有 goroutine 完成
 
-	d, err := dgraphC.New()
+	d, err := dgraphC.New(cfg.DgraphHost)
 	if err != nil {
 		log.WithCtx(ctx).Error("保存RSS项目到 Milvus,err: %v", err)
 		return rssItems, nil

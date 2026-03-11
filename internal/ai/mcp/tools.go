@@ -58,22 +58,19 @@ func GetCurrentTime(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResu
 	return mcp.NewToolResultText(time.Now().Format("2006-01-02 15:04:05")), nil
 }
 
-func RagSearch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (m *MCPServer) RagSearch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query := request.GetString("query", "")
 
-	// 创建RAG引擎
-	llmPool := llm.NewLLMPool()
-	llmInfo, err := llmPool.Get(ctx)
+	pool := llm.GetLLMPool()
+	llmInfo, err := pool.Get(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LLM info: %w", err)
+		return nil, fmt.Errorf("获取 LLM 信息失败：%w", err)
 	}
-	defer func() {
-		llmPool.Put(ctx, llmInfo)
-	}()
-	// 初始化RAG引擎
-	ragEngine, err := rag.NewEngine(ctx, llmInfo)
+	defer pool.Put(ctx, llmInfo)
+	// 初始化 RAG 引擎
+	ragEngine, err := rag.NewEngine(ctx, llmInfo, m.ragCfg)
 	if err != nil {
-		return nil, fmt.Errorf("初始化RAG引擎失败: %w", err)
+		return nil, fmt.Errorf("初始化 RAG 引擎失败：%w", err)
 	}
 	stream, err := ragEngine.Query(ctx, query)
 	if err != nil {

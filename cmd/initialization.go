@@ -48,14 +48,14 @@ var initializationCmd = &cobra.Command{
 			log.WithCtx(ctx).Error(err)
 		}
 		//  初始化dGraph
-		initDgraph(ctx)
+		initDgraph(ctx, config.Cfg.Database.Dgraph)
 		//  初始化Milvus
 		initMilvus(ctx)
 	},
 }
 
 func initMilvus(ctx context.Context) {
-	m := milvus.New(ctx)
+	m := milvus.NewMilvus(ctx, config.Cfg.Database.Milvus)
 	defer m.Close(ctx)
 	err := m.CreateDedupCollection(ctx, loadedCfg.Database.Milvus.DedupCollection)
 	if err != nil {
@@ -65,8 +65,8 @@ func initMilvus(ctx context.Context) {
 	log.WithCtx(ctx).Info("初始化Milvus成功")
 }
 
-func initDgraph(ctx context.Context) {
-	d, err := dgraph.New()
+func initDgraph(ctx context.Context, host string) {
+	d, err := dgraph.New(host)
 	if err != nil {
 		log.WithCtx(ctx).Error(err)
 		return

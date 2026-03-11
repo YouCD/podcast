@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"errors"
-	"podcast/config"
 	"podcast/pkg/types"
 	"sync"
 	"time"
@@ -27,18 +26,13 @@ type McpProxy struct {
 	mutex     sync.RWMutex          // 保护clientMap的并发访问
 }
 
-func GetMcpProxy() *McpProxy {
-	return mcpProxy
-}
-
-func InitMcpProxy(ctx context.Context) *McpProxy {
+func InitMcpProxy(ctx context.Context, mcpProxyConfig map[string]*types.Mcp) *McpProxy {
 	clientMap := make(map[string]*client.Client)
 	cacheTool := make(map[string]string)
 	urlMap := make(map[string]*types.Mcp)
 
 	once.Do(func() {
-		//config.Cfg.MCPProxy["self"] = fmt.Sprintf("http://%s/mcp?token=%s", config.Cfg.Global.HostPort, config.Cfg.Global.Token)
-		for key, mcp := range config.Cfg.MCPProxy {
+		for key, mcp := range mcpProxyConfig {
 			log.WithCtx(ctx).Infof("正在初始化MCP客户端: %s", key)
 			c, err := newClient(ctx, mcp)
 			if err != nil {
