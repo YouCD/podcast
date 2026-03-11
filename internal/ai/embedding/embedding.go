@@ -42,9 +42,10 @@ func (e *Embedder) CreateEmbeddings(ctx context.Context, content string) ([]floa
 	if err != nil {
 		return nil, fmt.Errorf("embedding strings failed: %w", err)
 	}
-	if len(result) > 0 {
-		for _, f := range result[0] {
-			resultA = append(resultA, float32(f))
+	if len(result) > 0 && len(result[0]) > 0 {
+		resultA = make([]float32, len(result[0]))
+		for i, f := range result[0] {
+			resultA[i] = float32(f)
 		}
 	}
 	return resultA, nil

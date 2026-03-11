@@ -30,7 +30,7 @@
           <!-- 今天 -->
           <div v-if="groupedSessions.today.length > 0" class="session-group">
             <div class="session-group-title">今天</div>
-            <div v-for="item in groupedSessions.today" :key="item.session_id">
+            <div v-for="item in groupedSessions.today" :key="item.session_id"  v-memo="[item.session_id]">>
               <button class="custom-button" @click="fetchMsg(item.session_id)">
                 {{ item.title }}
               </button>

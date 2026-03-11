@@ -80,11 +80,15 @@ func New(ctx context.Context, cfg *types.RagConfig) (compose.Runnable[[]*types.R
 		}
 	}
 	go func() {
-		clearTicker := time.NewTicker(time.Hour) // 每小时检查一次
+		clearTicker := time.NewTicker(time.Hour)
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
+		defer clearTicker.Stop()
 		for {
 			select {
+			case <-ctx.Done():
+				log.WithCtx(ctx).Info("cache goroutine stopped")
+				return
 			case <-ticker.C:
 				log.WithCtx(ctx).Infof("cache size: %d", cacheStore.ItemCount())
 			case <-clearTicker.C:

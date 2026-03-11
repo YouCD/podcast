@@ -125,7 +125,7 @@ func (dao *rssContentDao) FindByIDWithNextLLMHTML(ctx context.Context, id, categ
 	var err error
 	var rss *models.RssContent
 	if !withCreatedAt {
-		time24H := time.Now().Add(-24 * time.Hour)
+		time24H := getTime24HAgo()
 		err = dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("categories = ? AND created_at >= ? AND time_stay=0 AND id!=?", categories, time24H, id).First(&rss).Error
 	} else {
 		err = dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("categories = ? AND time_stay=0 AND id!=?", categories, id).First(&rss).Error
@@ -137,8 +137,13 @@ func (dao *rssContentDao) FindByIDWithNextLLMHTML(ctx context.Context, id, categ
 	return rss, nil
 }
 
+const twentyFourHours = 24 * time.Hour
+
+func getTime24HAgo() time.Time {
+	return time.Now().Add(-twentyFourHours)
+}
 func (dao *rssContentDao) FindRead24H(ctx context.Context) ([]*models.RssContent, error) {
-	time24H := time.Now().Add(-24 * time.Hour)
+	time24H := getTime24HAgo()
 	var posts []*models.RssContent
 	err := dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("created_at >= ? AND time_stay>0 ", time24H).Order("updated_at DESC").Scan(&posts).Error
 	return posts, err
@@ -146,7 +151,7 @@ func (dao *rssContentDao) FindRead24H(ctx context.Context) ([]*models.RssContent
 
 // FindBy24H 获取最近24小时的内容
 func (dao *rssContentDao) FindBy24H(ctx context.Context) ([]*models.RssContent, error) {
-	time24H := time.Now().Add(-24 * time.Hour)
+	time24H := getTime24HAgo()
 	var posts []*models.RssContent
 	err := dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("created_at >= ? AND time_stay=0", time24H).Order("date DESC").Scan(&posts).Error
 	// err := models.GetDb().Model(&models.RssContent{}).Find(&posts).Error
@@ -252,7 +257,7 @@ func (dao *rssContentDao) FindAllCategories(ctx context.Context) ([]string, erro
 // 参数: category 分类名称
 // 返回: Rss切片和错误信息
 func (dao *rssContentDao) FindByCategory24H(ctx context.Context, category string) ([]*models.RssContent, error) {
-	time24H := time.Now().Add(-24 * time.Hour)
+	time24H := getTime24HAgo()
 	var posts []*models.RssContent
 	err := dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("categories = ? AND created_at >= ? AND time_stay=0 ", category, time24H).Scan(&posts).Error
 	return posts, err

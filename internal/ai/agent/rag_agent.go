@@ -39,7 +39,7 @@ func BuildRAGAgent(ctx context.Context, llm model.ToolCallingChatModel, tools []
 		MessageModifier: func(ctx context.Context, input []*schema.Message) []*schema.Message {
 			systemMsg := &schema.Message{
 				Role:    schema.System,
-				Content: createSystemPrompt(),
+				Content: p,
 			}
 			return append([]*schema.Message{systemMsg}, input...)
 		},

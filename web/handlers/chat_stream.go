@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"podcast/internal/ai/agent"
-	"sort"
 	"sync"
 
 	"github.com/cloudwego/eino/schema"
@@ -68,9 +67,9 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 		return
 	}
 
-	sort.Slice(historyModels, func(i, j int) bool {
-		return historyModels[i].CreatedAt.Before(historyModels[j].CreatedAt)
-	})
+	//sort.Slice(historyModels, func(i, j int) bool {
+	//	return historyModels[i].CreatedAt.Before(historyModels[j].CreatedAt)
+	//})
 	if len(historyModels) == 0 {
 		historyModels = []*models.Message{}
 	}

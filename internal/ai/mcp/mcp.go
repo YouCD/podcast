@@ -32,14 +32,14 @@ func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types
 	return &MCPServer{s, token, cfg, MCPProxy}
 }
 
-func (m *MCPServer) RunWithGin(router *gin.Engine) {
-	stream := server.NewStreamableHTTPServer(m.MCPServer, server.WithLogger(log.GetLogger()))
-	m.Init(m.MCPProxy)
+func (s *MCPServer) RunWithGin(router *gin.Engine) {
+	stream := server.NewStreamableHTTPServer(s.MCPServer, server.WithLogger(log.GetLogger()))
+	s.Init(s.MCPProxy)
 	// 将MCP处理程序注册到Gin路由器
 	router.Any("/mcp", func(c *gin.Context) {
 		// 应用token验证
 		token := c.Query("token")
-		if token != m.token {
+		if token != s.token {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
@@ -49,11 +49,11 @@ func (m *MCPServer) RunWithGin(router *gin.Engine) {
 	})
 }
 
-func (m *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
-	m.RegisterTool(search24HRss, Search24HRss).
+func (s *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
+	s.RegisterTool(search24HRss, Search24HRss).
 		RegisterTool(rssCategories, RssCategories).
 		RegisterTool(getCurrentTime, GetCurrentTime)
-	//m.RegisterTool(ragSearch, RagSearch)
+	//s.RegisterTool(ragSearch, RagSearch)
 	ctx := context.Background()
 	proxy := InitMcpProxy(ctx, mcpProxyConfig)
 
@@ -63,7 +63,7 @@ func (m *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
 	for name, c := range proxy.clientMap {
 		to, err := c.ListTools(ctx, mcp.ListToolsRequest{})
 		if err != nil {
-			log.WithCtx(ctx).Errorf("获取 %m 的工具列表失败: %v", name, err)
+			log.WithCtx(ctx).Errorf("获取 %s 的工具列表失败: %v", name, err)
 			continue
 		}
 
@@ -71,8 +71,8 @@ func (m *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
 			newTol := t
 			newTol.Name = name + "_" + t.Name
 
-			log.WithCtx(ctx).Debugf("注册工具: %m", newTol.Name)
-			m.RegisterTool(
+			log.WithCtx(ctx).Debugf("注册工具: %s", newTol.Name)
+			s.RegisterTool(
 				newTol,
 				handler(c, name),
 			)
@@ -95,7 +95,7 @@ func handler(client *client.Client, name string) server.ToolHandlerFunc {
 		return tool, nil
 	}
 }
-func (m *MCPServer) RegisterTool(tool mcp.Tool, handler server.ToolHandlerFunc) *MCPServer {
-	m.AddTool(tool, handler)
-	return m
+func (s *MCPServer) RegisterTool(tool mcp.Tool, handler server.ToolHandlerFunc) *MCPServer {
+	s.AddTool(tool, handler)
+	return s
 }
