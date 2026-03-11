@@ -73,7 +73,10 @@ var rootCmd = &cobra.Command{
 			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast)
 		}()
 		// 设置路由（依赖注入：cfg + db -> container -> router）
-		container := app.New(ctx, loadedCfg, loadedDB)
+		container, err := app.New(ctx, loadedCfg, loadedDB)
+		if err != nil {
+			log.WithCtx(cmd.Context()).Fatalf("failed to create container: %v", err)
+		}
 		r := routes.SetupRouter(container)
 		// 在 goroutine 中启动服务
 		srv := &http.Server{
@@ -93,7 +96,12 @@ var rootCmd = &cobra.Command{
 
 		// 优雅关闭服务器
 		ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		defer func() {
+			if err := container.Close(ctx); err != nil {
+				log.WithCtx(ctx).Error(err)
+			}
+			cancel()
+		}()
 		if err := srv.Shutdown(ctxShutdown); err != nil {
 			log.WithCtx(ctx).Panicf("Server forced to shutdown: %v", err)
 		}

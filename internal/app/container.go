@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"podcast/config"
 	"podcast/internal/ai/agent"
 	"podcast/internal/ai/embedding"
@@ -10,6 +11,7 @@ import (
 	"podcast/internal/database/dao"
 	"podcast/internal/service"
 
+	"github.com/youcd/toolkit/log"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +40,8 @@ type Container struct {
 }
 
 // New 从配置与 DB 构建容器（DAO、Service 均通过构造函数注入）
-func New(ctx context.Context, cfg *config.Config, db *gorm.DB) *Container {
+// 返回容器实例和错误，避免 panic
+func New(ctx context.Context, cfg *config.Config, db *gorm.DB) (*Container, error) {
 	c := &Container{Cfg: cfg, DB: db}
 
 	c.User = dao.NewUserDao(db)
@@ -68,17 +71,47 @@ func New(ctx context.Context, cfg *config.Config, db *gorm.DB) *Container {
 	// 初始化 AI 组件
 	emb, err := embedding.NewEmbedder(ctx, cfg.Vector.Embedding)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("初始化 Embedding 失败: %w", err)
 	}
 	c.Embedding = emb
 
 	// 转换 LLM 配置
-	c.LLMPool = llm.InitLLMPool(cfg.LLM)
+	c.LLMPool = llm.NewLLMPool(cfg.LLM)
 
 	c.Milvus = milvus.NewMilvus(context.Background(), cfg.Database.Milvus)
 	c.MCPConfig = &agent.MCPConfig{
 		HostPort: cfg.Global.HostPort,
 		Token:    cfg.Global.Token,
 	}
-	return c
+	return c, nil
+}
+
+// Close 关闭容器中的资源，实现 io.Closer 接口
+func (c *Container) Close(ctx context.Context) error {
+	var errs []error
+
+	// 关闭 Milvus 连接
+	if c.Milvus != nil {
+		c.Milvus.Close(ctx)
+	}
+
+	// 关闭数据库连接
+	if c.DB != nil {
+		sqlDB, err := c.DB.DB()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("获取数据库连接失败: %w", err))
+		} else {
+			if err := sqlDB.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("关闭数据库连接失败: %w", err))
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		for _, e := range errs {
+			log.WithCtx(ctx).Error(e)
+		}
+		return fmt.Errorf("关闭容器时发生 %d 个错误", len(errs))
+	}
+	return nil
 }

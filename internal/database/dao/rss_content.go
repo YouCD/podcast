@@ -107,6 +107,7 @@ type rssContentDao struct {
 func NewRssContentDao(db *gorm.DB) RssContentDao {
 	return &rssContentDao{db: db}
 }
+
 func (dao *rssContentDao) FindNotReadContent(ctx context.Context) ([]*models.RssContent, error) {
 	var posts []*models.RssContent
 	err := dao.db.Model(&models.RssContent{}).WithContext(ctx).Where(`time_stay=0 AND categories != "low_quality" AND llm_result!=""`).Order("date DESC").Scan(&posts).Error

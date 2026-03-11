@@ -14,11 +14,14 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// 全局 LLM 池实例（用于兼容旧代码）
 var (
-	once    sync.Once
-	llmPool *LLMPool
+	globalPool     *LLMPool
+	globalPoolOnce sync.Once
+	globalPoolMu   sync.RWMutex
 )
 
+// LLMPool LLM 连接池，管理多个 LLM 提供商
 type LLMPool struct {
 	entries  []*llmEntry              // 所有可用配置
 	limiters map[string]*rate.Limiter // key -> 独立限速器
@@ -36,39 +39,48 @@ type llmEntry struct {
 	key  string
 }
 
-func InitLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
-	once.Do(func() {
-		entries := make([]*llmEntry, 0, len(llmConfigs))
-		limiters := make(map[string]*rate.Limiter)
-		for _, cfg := range llmConfigs {
-			key := fmt.Sprintf("%s|%s", cfg.Model, cfg.BaseURL)
-			entries = append(entries, &llmEntry{
-				info: cfg,
-				key:  key,
-			})
-			// 每个提供商独立限速：10 QPS，突发 5
-			limiters[key] = rate.NewLimiter(rate.Every(100*time.Millisecond), 10)
-		}
-
-		// 打乱顺序实现负载均衡
-		rand.Shuffle(len(entries), func(i, j int) {
-			entries[i], entries[j] = entries[j], entries[i]
+// NewLLMPool 创建新的 LLM 连接池（推荐使用）
+func NewLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
+	entries := make([]*llmEntry, 0, len(llmConfigs))
+	limiters := make(map[string]*rate.Limiter)
+	for _, cfg := range llmConfigs {
+		key := fmt.Sprintf("%s|%s", cfg.Model, cfg.BaseURL)
+		entries = append(entries, &llmEntry{
+			info: cfg,
+			key:  key,
 		})
+		// 每个提供商独立限速：10 QPS，突发 5
+		limiters[key] = rate.NewLimiter(rate.Every(100*time.Millisecond), 10)
+	}
 
-		llmPool = &LLMPool{
-			entries:  entries,
-			limiters: limiters,
-			// 并发度设为 2*len(entries)，既充分利用又不打满
-			sem:       semaphore.NewWeighted(int64(len(entries) * 2)),
-			cooling:   &sync.Map{},
-			baseDelay: 4 * time.Hour, // 基础冷却 1h
-		}
+	// 打乱顺序实现负载均衡
+	rand.Shuffle(len(entries), func(i, j int) {
+		entries[i], entries[j] = entries[j], entries[i]
 	})
-	return llmPool
+
+	pool := &LLMPool{
+		entries:  entries,
+		limiters: limiters,
+		// 并发度设为 2*len(entries)，既充分利用又不打满
+		sem:       semaphore.NewWeighted(int64(len(entries) * 2)),
+		cooling:   &sync.Map{},
+		baseDelay: 4 * time.Hour, // 基础冷却 1h
+	}
+
+	// 设置全局池
+	globalPoolMu.Lock()
+	globalPool = pool
+	globalPoolMu.Unlock()
+
+	return pool
 }
 
+// GetLLMPool 获取全局 LLM 池实例（兼容旧代码）
+// Deprecated: 推荐通过依赖注入使用 LLMPool
 func GetLLMPool() *LLMPool {
-	return llmPool
+	globalPoolMu.RLock()
+	defer globalPoolMu.RUnlock()
+	return globalPool
 }
 
 // Get 从池中获取一个可用的 LLM，支持重试和上下文取消

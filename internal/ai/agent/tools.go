@@ -7,7 +7,6 @@ import (
 	"podcast/internal/ai/embedding"
 	"podcast/pkg/types"
 	"strings"
-	"sync"
 
 	"podcast/internal/ai/rag"
 	"podcast/pkg/dgraph"
@@ -180,68 +179,107 @@ func (t *DGraphQueryTool) InvokableRun(ctx context.Context, argumentsInJSON stri
 %s`, result), nil
 }
 
-var (
-	once sync.Once
-	ts   []tool.BaseTool
-)
-
 // MCPConfig MCP 客户端配置
 type MCPConfig struct {
 	HostPort string
 	Token    string
 }
 
+// ToolManager 工具管理器，管理所有 Agent 工具的生命周期
+type ToolManager struct {
+	tools  []tool.BaseTool
+	mcpCli *client.Client
+	dgraph *dgraph.Dgraph
+	milvus *MilvusSearchTool
+}
+
+// NewToolManager 创建工具管理器（推荐使用）
+func NewToolManager(ctx context.Context, cfg *MCPConfig, ragConfig *types.RagConfig) (*ToolManager, error) {
+	tm := &ToolManager{}
+
+	// 初始化 MCP 客户端
+	tr, err := transport.NewStreamableHTTP("http://" + cfg.HostPort + "/mcp?token=" + cfg.Token)
+	if err != nil {
+		log.WithCtx(ctx).Errorf("Failed to init SSE transport : %v", err)
+		return nil, fmt.Errorf("初始化 SSE 传输失败: %w", err)
+	}
+
+	cli := client.NewClient(tr)
+	tm.mcpCli = cli
+
+	err = cli.Start(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("MCP客户端启动失败: %w", err)
+	}
+
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "rag-agent",
+		Version: "1.0.0",
+	}
+	_, err = cli.Initialize(ctx, initRequest)
+	if err != nil {
+		return nil, fmt.Errorf("MCP初始化失败: %w", err)
+	}
+
+	// 获取 MCP 工具
+	mcpTools, err := einomcp.GetTools(ctx, &einomcp.Config{Cli: cli})
+	if err != nil {
+		return nil, fmt.Errorf("获取MCP工具失败: %w", err)
+	}
+
+	// 初始化 DGraph
+	d, err := dgraph.New(ragConfig.DgraphHost)
+	if err != nil {
+		return nil, fmt.Errorf("初始化DGraph客户端失败: %w", err)
+	}
+	tm.dgraph = d
+
+	// 初始化 Milvus 检索工具
+	milvusTool, err := NewMilvusSearchTool(ctx, ragConfig.Embedding, ragConfig.Milvus)
+	if err != nil {
+		return nil, fmt.Errorf("初始化 Milvus 检索工具失败：%w", err)
+	}
+	tm.milvus = milvusTool
+
+	// 组装所有工具
+	tm.tools = append(mcpTools,
+		&DGraphQueryTool{d: d},
+		milvusTool,
+	)
+
+	return tm, nil
+}
+
+// GetTools 获取所有工具
+func (tm *ToolManager) GetTools() []tool.BaseTool {
+	return tm.tools
+}
+
+// Close 关闭工具管理器，释放资源
+func (tm *ToolManager) Close(ctx context.Context) error {
+	var errs []error
+
+	// 关闭 MCP 客户端
+	if tm.mcpCli != nil {
+		if err := tm.mcpCli.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("关闭 MCP 客户端失败: %w", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("关闭工具管理器时发生 %d 个错误", len(errs))
+	}
+	return nil
+}
+
+// initMcpTool 初始化 MCP 工具（兼容旧代码，推荐使用 NewToolManager）
+// Deprecated: 请使用 NewToolManager
 func initMcpTool(ctx context.Context, cfg *MCPConfig, ragConfig *types.RagConfig) ([]tool.BaseTool, error) {
-	var lastErr error
-
-	once.Do(func() {
-		tr, err := transport.NewStreamableHTTP("http://" + cfg.HostPort + "/mcp?token=" + cfg.Token)
-		//tr, err := transport.NewStreamableHTTP("https://rss.youcd.online/mcp?token=youcd")
-		if err != nil {
-			log.WithCtx(context.Background()).Errorf("Failed to init SSE transport : %v", err)
-			lastErr = err
-		}
-
-		cli := client.NewClient(tr)
-		err = cli.Start(ctx)
-		if err != nil {
-			lastErr = fmt.Errorf("MCP客户端启动失败: %w", err)
-		}
-		initRequest := mcp.InitializeRequest{}
-		initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-		initRequest.Params.ClientInfo = mcp.Implementation{
-			Name:    "rag-agent",
-			Version: "1.0.0",
-		}
-		_, err = cli.Initialize(ctx, initRequest)
-		if err != nil {
-			lastErr = fmt.Errorf("MCP初始化失败: %w", err)
-		}
-
-		tools, err := einomcp.GetTools(ctx, &einomcp.Config{Cli: cli})
-		if err != nil {
-			lastErr = fmt.Errorf("获取MCP工具失败: %w", err)
-		}
-		d, err := dgraph.New(ragConfig.DgraphHost)
-		if err != nil {
-			lastErr = fmt.Errorf("初始化DGraph客户端失败: %w", err)
-		}
-
-		// 初始化工具 - 使用依赖注入
-		milvusTool, err := NewMilvusSearchTool(ctx, ragConfig.Embedding, ragConfig.Milvus)
-		if err != nil {
-			lastErr = fmt.Errorf("初始化 Milvus 检索工具失败：%w", err)
-			return
-		}
-
-		tools = append(tools,
-			&DGraphQueryTool{
-				d: d,
-			},
-			milvusTool,
-		)
-		ts = tools
-	})
-
-	return ts, lastErr
+	tm, err := NewToolManager(ctx, cfg, ragConfig)
+	if err != nil {
+		return nil, err
+	}
+	return tm.GetTools(), nil
 }

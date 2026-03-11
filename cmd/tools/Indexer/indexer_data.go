@@ -34,7 +34,7 @@ func main() {
 			ID:      int64(i),
 			ApiKey:  llmCfg.ApiKey,
 			Model:   llmCfg.Model,
-			BaseUrl: llmCfg.BaseURL,
+			BaseURL: llmCfg.BaseURL,
 		}
 	}
 	llmPool := llm.NewLLMPool(llmInfos)
@@ -45,17 +45,17 @@ func main() {
 	}
 
 	// 创建 RAG 引擎配置
-	ragCfg := rag.EngineConfig{
-		Milvus: rag.MilvusClientConfig{
-			Address: c.Database.Milvus.Endpoint,
-			APIKey:  c.Database.Milvus.APIKey,
-			DBName:  c.Database.Milvus.DBName,
+	ragCfg := &types.RagConfig{
+		Milvus: &types.Milvus{
+			Endpoint:      c.Database.Milvus.Endpoint,
+			APIKey:        c.Database.Milvus.APIKey,
+			DBName:        c.Database.Milvus.DBName,
+			RssCollection: c.Database.Milvus.RssCollection,
 		},
-		Embedding: rag.EmbeddingConfig{
+		Embedding: &types.Embedding{
 			APIKey: c.Vector.Embedding.APIKey,
 			Model:  c.Vector.Embedding.Model,
 		},
-		Collection: c.Database.Milvus.RssCollection,
 	}
 
 	engine, err := rag.NewEngine(ctx, llmInfo, ragCfg)

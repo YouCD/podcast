@@ -2,26 +2,46 @@ package workflow
 
 import (
 	"context"
-	"podcast/internal/database/dao"
-	"podcast/internal/database/models"
 	"time"
 
 	"podcast/internal/ai/embedding"
 	"podcast/internal/ai/milvus"
+	"podcast/internal/database/dao"
 	"podcast/pkg/types"
 
 	"github.com/patrickmn/go-cache"
 	"github.com/youcd/toolkit/log"
 )
 
-// deduplicate 去重处理
-func deduplicate(ctx context.Context, state *graphState, cfg *types.RagConfig) (*graphState, error) {
+// cacheStore 缓存存储，用于向量去重
+var cacheStore = cache.New(24*time.Hour, 24*time.Hour)
+
+// Deduplicator 去重处理器，使用依赖注入
+type Deduplicator struct {
+	rssDao   dao.RssContentDao
+	embedder *embedding.Embedder
+	milvus   *milvus.Milvus
+	cfg      *types.RagConfig
+}
+
+// NewDeduplicator 创建去重处理器
+func NewDeduplicator(rssDao dao.RssContentDao, embedder *embedding.Embedder, milvusClient *milvus.Milvus, cfg *types.RagConfig) *Deduplicator {
+	return &Deduplicator{
+		rssDao:   rssDao,
+		embedder: embedder,
+		milvus:   milvusClient,
+		cfg:      cfg,
+	}
+}
+
+// deduplicate 去重处理（使用依赖注入）
+func (d *Deduplicator) deduplicate(ctx context.Context, state *graphState) (*graphState, error) {
 	log.WithCtx(ctx).Info("开始去重处理")
 	output := []*types.RSSItem{}
-	var rssContentDao = dao.NewRssContentDao(models.GetDb())
+
 	for _, item := range state.Filtered {
 		// 查询数据库中是否已存在该键
-		existingPost, err := rssContentDao.FindByMD5(ctx, item.MD5)
+		existingPost, err := d.rssDao.FindByMD5(ctx, item.MD5)
 		if err != nil {
 			log.WithCtx(ctx).Errorw("deduplicate", "MD5", item.MD5, "err", err)
 			continue
@@ -47,19 +67,15 @@ func deduplicate(ctx context.Context, state *graphState, cfg *types.RagConfig) (
 	}
 	log.WithCtx(ctx).Infow("deduplicate_need_embedding_count", "in_mysql", len(output))
 	// 向量去重处理
-	dedup := embeddingDedup(ctx, output, cfg)
+	dedup := d.embeddingDedup(ctx, output)
 	log.WithCtx(ctx).Infow("deduplicate_embedding_count", "in_embedding", len(dedup))
 
 	state.UniqueItems = dedup
 	return state, nil
 }
 
-var cacheStore = cache.New(24*time.Hour, 24*time.Hour)
-
-func embeddingDedup(ctx context.Context, rss []*types.RSSItem, cfg *types.RagConfig) []*types.RSSItem {
+func (d *Deduplicator) embeddingDedup(ctx context.Context, rss []*types.RSSItem) []*types.RSSItem {
 	var items []*types.RSSItem
-	m := milvus.NewMilvus(ctx, cfg.Milvus)
-	defer m.Close(ctx)
 	for _, item := range rss {
 		var vector []float32
 		_, b := cacheStore.Get(item.Title)
@@ -67,12 +83,7 @@ func embeddingDedup(ctx context.Context, rss []*types.RSSItem, cfg *types.RagCon
 			log.WithCtx(ctx).Debugw("embedding_dedup", "MD5", item.MD5, "title", item.Title, "cache", "hit")
 			continue
 		} else {
-			embedder, err := embedding.NewEmbedder(ctx, cfg.Embedding)
-			if err != nil {
-				log.WithCtx(ctx).Errorw("embedding_create", "MD5", item.MD5, "title", item.Title, "err", err)
-				continue
-			}
-			vectorData, err := embedder.CreateEmbeddings(ctx, item.Title)
+			vectorData, err := d.embedder.CreateEmbeddings(ctx, item.Title)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("embedding_create", "MD5", item.MD5, "title", item.Title, "err", err)
 				continue
@@ -81,7 +92,7 @@ func embeddingDedup(ctx context.Context, rss []*types.RSSItem, cfg *types.RagCon
 			cacheStore.Set(item.Title, vectorData, 24*time.Hour)
 		}
 
-		dedup, title, score, err := m.DedupSearch(ctx, vector, cfg.Milvus.DedupCollection)
+		dedup, title, score, err := d.milvus.DedupSearch(ctx, vector, d.cfg.Milvus.DedupCollection)
 		if err != nil {
 			log.WithCtx(ctx).Errorw("dedup", "err", err)
 			continue
@@ -90,7 +101,7 @@ func embeddingDedup(ctx context.Context, rss []*types.RSSItem, cfg *types.RagCon
 			log.WithCtx(ctx).Debugw("embedding_dedup", "MD5", item.MD5, "embedding", "hit", "emb_title", title, "src_title", item.Title, "score", score)
 		} else {
 			items = append(items, item)
-			err = m.Insert(ctx, item.Date, item.MD5, item.Title, vector, cfg.Milvus.DedupCollection)
+			err = d.milvus.Insert(ctx, item.Date, item.MD5, item.Title, vector, d.cfg.Milvus.DedupCollection)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("embedding_dedup", "MD5", item.MD5, "title", item.Title, "err", err)
 			} else {
