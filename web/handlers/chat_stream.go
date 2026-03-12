@@ -136,16 +136,23 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 		defer close(sseChan) // 生产者结束时关闭 Channel
 
 		// 创建 Agent 实例
-		agentInstance, err := agent.NewRAGAgent(ctx, h.ragCfg)
+		agentInstance, err := agent.NewAgent(ctx, input.Content, h.ragCfg)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("Failed to create RAG Agent: %v", err)
 			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("Failed to create RAG Agent: %v", err)})
 			sseChan <- SSEEvent{Event: "error", Data: string(errResp)}
 			return
 		}
+		ragAgent, err := agentInstance.BuildRAGAgent(ctx)
+		if err != nil {
+			log.WithCtx(ctx).Errorf("Failed to init rag agent: %v", err)
+			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("Failed to init rag agent: %v", err)})
+			sseChan <- SSEEvent{Event: "error", Data: string(errResp)}
+			return
+		}
 
 		// 启动 Agent 流式处理
-		stream, err := agentInstance.Stream(ctx, messages, futureOpt)
+		stream, err := ragAgent.Stream(ctx, messages, futureOpt)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("RAG query failed: %v", err)
 			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("RAG query failed: %v", err)})

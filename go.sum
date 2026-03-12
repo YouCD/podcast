@@ -74,6 +74,8 @@ github.com/cloudwego/eino-ext/components/embedding/dashscope v0.0.0-202601220647
 github.com/cloudwego/eino-ext/components/embedding/dashscope v0.0.0-20260122064704-d8be5ee82c09/go.mod h1:ekJmA+GLD9vJyZNeODZDBFMiJ92Suy6nF0OY42X3sao=
 github.com/cloudwego/eino-ext/components/indexer/milvus2 v0.0.0-20260122064704-d8be5ee82c09 h1:G/QgE05+kLC5QgIH/L+qnVXRZQ0qeoh4QttsTV8gMXk=
 github.com/cloudwego/eino-ext/components/indexer/milvus2 v0.0.0-20260122064704-d8be5ee82c09/go.mod h1:6+N5OCZrRkr8cUvTtbsEAhVAQvcVebzkh1LYRR76Lgo=
+github.com/cloudwego/eino-ext/components/model/openai v0.1.9 h1:qlb9dKUjiO+8kkTLNgdOmMhF2eWOq+t6djq+fYUCCeA=
+github.com/cloudwego/eino-ext/components/model/openai v0.1.9/go.mod h1:smEeTKXe8uz+HDUBQn0yZhpx7mmOUKFQyguLfjAQ57I=
 github.com/cloudwego/eino-ext/components/model/qwen v0.1.5 h1:H0Irkydo2INyYNqjJTCRjfvycPNJMC2FcfmebfL83hM=
 github.com/cloudwego/eino-ext/components/model/qwen v0.1.5/go.mod h1:PTn/QxFqwmFW8fB4PtxjXB77uGtabOuWHahe751+Ras=
 github.com/cloudwego/eino-ext/components/retriever/milvus2 v0.0.0-20260129022659-79f80daf11c9 h1:pPs0XV+I0v7dJKbQBGlcv7W6J8vPtgkdZ07R89ai52s=
@@ -82,6 +84,8 @@ github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8 h1:/QwCVAtB61b4Q2+RUvho
 github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8/go.mod h1:zxP8sFkADBqflNc0a4qfKdLYQ+edzHPlkOaZF0A1X7o=
 github.com/cloudwego/eino-ext/libs/acl/openai v0.1.11 h1:1Zm1R6WRLwDKLVlaY/ixIwlPnuVE1DvxNv5eAeE53mI=
 github.com/cloudwego/eino-ext/libs/acl/openai v0.1.11/go.mod h1:1xMQZ8eE11pkEoTAEy8UlaAY817qGVMvjpDPGSIO3Ns=
+github.com/cloudwego/eino-ext/libs/acl/openai v0.1.14 h1:yOZII6VYaL00CVZYba+HUixFygsW0Xz/1QjQ5htj1Ls=
+github.com/cloudwego/eino-ext/libs/acl/openai v0.1.14/go.mod h1:1xMQZ8eE11pkEoTAEy8UlaAY817qGVMvjpDPGSIO3Ns=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cockroachdb/datadriven v1.0.2 h1:H9MtNqVoVhvd9nCBwOyDjUEdZCREqbIdCJD93PBm/jA=

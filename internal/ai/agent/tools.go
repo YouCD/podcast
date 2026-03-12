@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"podcast/internal/ai/embedding"
+	"podcast/internal/database/dao"
+	"podcast/internal/database/models"
 	"podcast/pkg/types"
+	"regexp"
 	"strings"
 
 	"podcast/internal/ai/rag"
@@ -93,15 +96,43 @@ func (t *MilvusSearchTool) InvokableRun(ctx context.Context, argumentsInJSON str
 
 	// 格式化结果
 	var buf strings.Builder
+
+	md5Map := make(map[string]bool)
 	for _, doc := range docs {
+		if a, ok := doc.MetaData["md5"]; ok {
+			md5Map[a.(string)] = true
+		}
 		buf.WriteString(fmt.Sprintf(`Content: %s
 link: %s
 
 `, doc.String(), doc.MetaData["_source"]))
-		log.WithCtx(ctx).Debugw("ToolCall", "Content", doc.String())
+		log.WithCtx(ctx).Debugw("ToolCall", "tool_name", "milvus_search", "Content", doc.String())
 	}
 
-	return buf.String(), nil
+	var md5s []string
+	for md5 := range md5Map {
+		md5s = append(md5s, md5)
+	}
+	log.WithCtx(ctx).Infow("ToolCall", "tool_name", "milvus_search", "content_len", len(md5s))
+
+	rssContent, err := dao.NewRssContentDao(models.GetDb()).FindByMD5(ctx, md5s...)
+	if err != nil {
+		log.WithCtx(ctx).Errorf("Query failed, find by md5 err: %v\n", err)
+		log.WithCtx(ctx).Infow("ToolCall", "tool_name", "milvus_search", "返回数据", "向量数据")
+		return buf.String(), nil
+	}
+
+	// 格式化结果
+	var rssBuf strings.Builder
+	for _, rss := range rssContent {
+		content := regexp.MustCompile(`\s+`).ReplaceAllString(strings.TrimSpace(rss.Content), " ")
+		rssBuf.WriteString(fmt.Sprintf(`Content: %s
+link: %s
+
+`, content, rss.Link))
+	}
+
+	return rssBuf.String(), nil
 }
 
 // DGraphQueryTool 关系查询工具
@@ -272,14 +303,4 @@ func (tm *ToolManager) Close(ctx context.Context) error {
 		return fmt.Errorf("关闭工具管理器时发生 %d 个错误", len(errs))
 	}
 	return nil
-}
-
-// initMcpTool 初始化 MCP 工具（兼容旧代码，推荐使用 NewToolManager）
-// Deprecated: 请使用 NewToolManager
-func initMcpTool(ctx context.Context, cfg *MCPConfig, ragConfig *types.RagConfig) ([]tool.BaseTool, error) {
-	tm, err := NewToolManager(ctx, cfg, ragConfig)
-	if err != nil {
-		return nil, err
-	}
-	return tm.GetTools(), nil
 }

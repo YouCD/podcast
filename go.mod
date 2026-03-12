@@ -13,7 +13,7 @@ require (
 	github.com/cloudwego/eino-ext/components/model/qwen v0.1.5
 	github.com/cloudwego/eino-ext/components/retriever/milvus2 v0.0.0-20260129022659-79f80daf11c9
 	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8
-	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.11
+	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.14
 	github.com/dgraph-io/dgo/v250 v250.0.0
 	github.com/duke-git/lancet/v2 v2.3.8
 	github.com/gin-gonic/gin v1.11.0
@@ -63,6 +63,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/cloudwego/eino-ext/components/model/openai v0.1.9 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect

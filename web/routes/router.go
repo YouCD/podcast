@@ -35,16 +35,18 @@ func SetupRouter(container *app.Container) *gin.Engine {
 	userHandler := handlers.NewUserHandler(container.UserSvc)
 	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast)
 	keyinfosHandler := handlers.NewKeyInfoHandler(container.KeyInfoSvc)
+	ragCfg := &types.RagConfig{
+		Milvus:     container.Cfg.Database.Milvus,
+		Embedding:  container.Cfg.Vector.Embedding,
+		DgraphHost: container.Cfg.Database.Dgraph,
+	}
 	chatHandler := handlers.NewChatHandler(container.Chat, &agent.RAGAgentConfig{
 		MCP:       container.MCPConfig,
-		RagConfig: &types.RagConfig{Embedding: container.Cfg.Vector.Embedding, Milvus: container.Cfg.Database.Milvus},
+		RagConfig: ragCfg,
 	})
 	promptHandler := handlers.NewPromptHandler(container.PromptSvc)
 	templateHandler := handlers.NewTemplateHandler(container.TemplateSvc)
-	ragCfg := &types.RagConfig{
-		Milvus:    container.Cfg.Database.Milvus,
-		Embedding: container.Cfg.Vector.Embedding,
-	}
+
 	token := ""
 	logLevel := "info"
 	if container.Cfg != nil && container.Cfg.Global != nil {

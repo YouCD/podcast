@@ -24,11 +24,10 @@ var (
 	getCurrentTime = mcp.NewTool("get_current_time", mcp.WithDescription(`功能：获取当前时间, 格式为: "2025-11-22 15:04:05"`))
 	//ragSearch      = mcp.NewTool("rag_search", mcp.WithDescription(`功能：从向量数据库中检索相关信息，支持语义搜索`),
 	//	mcp.WithString("query", mcp.Description("用户的问题")))
-
-	rssDao = dao.NewRssContentDao(models.GetDb())
 )
 
 func Search24HRss(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	rssDao := dao.NewRssContentDao(models.GetDb())
 	categories := request.GetString("categories", "科技")
 	posts, err := rssDao.FindByCategory24H(ctx, categories)
 	if err != nil {
@@ -47,6 +46,7 @@ func Search24HRss(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 }
 
 func RssCategories(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	rssDao := dao.NewRssContentDao(models.GetDb())
 	allCategories, err := rssDao.FindByTodayCategory(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("FindByTodayCategory,err:%w", err)

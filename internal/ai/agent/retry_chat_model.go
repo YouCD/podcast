@@ -19,12 +19,13 @@ import (
 )
 
 type retryChatModel struct {
-	base     *qwen.ChatModel
-	maxRetry int
-	backoff  func(attempt int) time.Duration
-	llmPool  *llm.LLMPool
-	llmInfo  *types.LLMInfo
-	mutex    sync.Mutex
+	base           *qwen.ChatModel
+	maxRetry       int
+	backoff        func(attempt int) time.Duration
+	llmPool        *llm.LLMPool
+	llmInfo        *types.LLMInfo
+	mutex          sync.Mutex
+	responseFormat openai.ChatCompletionResponseFormatType
 }
 
 func defaultBackoff(attempt int) time.Duration {
@@ -51,7 +52,7 @@ func isRetryableRateLimit(err error) bool {
 		strings.Contains(s, "limit reached") ||
 		strings.Contains(s, "requests per") // dashscope 常见
 }
-func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time.Duration) (*retryChatModel, error) {
+func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time.Duration, responseFormat openai.ChatCompletionResponseFormatType) (*retryChatModel, error) {
 	if maxRetry < 0 {
 		maxRetry = 0
 	}
@@ -61,16 +62,17 @@ func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time
 
 	// 创建 RAG 引擎
 	m := &retryChatModel{
-		maxRetry: maxRetry,
-		backoff:  backoff,
-		llmPool:  llm.GetLLMPool(),
+		maxRetry:       maxRetry,
+		backoff:        backoff,
+		llmPool:        llm.GetLLMPool(),
+		responseFormat: responseFormat,
 	}
 	// 构建ReAct Agent
 	llmInfo, err := m.llmPool.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
-	chatModel, err := pkg.NewChatModel(ctx, llmInfo, openai.ChatCompletionResponseFormatTypeText)
+	chatModel, err := pkg.NewChatModel(ctx, llmInfo, responseFormat)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +123,7 @@ func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts 
 			r.mutex.Lock()
 			r.llmInfo = get
 			r.mutex.Unlock()
-			chatModel, err := newModel(ctx)
+			chatModel, err := r.newModel(ctx)
 			if err != nil {
 				log.WithCtx(ctx).Error(err)
 				continue
@@ -163,7 +165,6 @@ func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts 
 // 同步方法重试更简单，直接循环调用 base.Generate 即可
 
 func (r *retryChatModel) Generate(ctx context.Context, in []*schema.Message, opts ...model.Option) (*schema.Message, error) {
-	log.WithCtx(ctx).Warnw("Retrying Generate...")
 
 	var lastErr error
 	for attempt := 0; attempt <= r.maxRetry; attempt++ {
@@ -183,6 +184,7 @@ func (r *retryChatModel) Generate(ctx context.Context, in []*schema.Message, opt
 		wait := r.backoff(attempt)
 		select {
 		case <-time.After(wait):
+			log.WithCtx(ctx).Warnw("Retrying Generate", "attempt", attempt, "err", err)
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -221,4 +223,20 @@ func (r *retryChatModel) GetModelName() string {
 		return namer.GetModelName()
 	}
 	return "unknown-retry"
+}
+func (r *retryChatModel) newModel(ctx context.Context) (*qwen.ChatModel, error) {
+	llmPool := llm.GetLLMPool()
+	llmInfo, err := llmPool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get LLM info: %w", err)
+	}
+	defer func() {
+		llmPool.Put(ctx, llmInfo)
+	}()
+	// 构建ReAct Agent
+	chatModel, err := pkg.NewChatModel(ctx, llmInfo, r.responseFormat)
+	if err != nil {
+		return nil, err
+	}
+	return chatModel, nil
 }
