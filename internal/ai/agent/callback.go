@@ -16,6 +16,8 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
+// ==================== 原有 ReAct 回调（保留兼容） ====================
+
 type AgentCallback struct {
 	startTime   time.Time
 	stepCount   int
@@ -28,32 +30,23 @@ func (a *AgentCallback) OnStart(ctx context.Context, info *callbacks.RunInfo, in
 	a.startTime = time.Now()
 	a.stepCount++
 	log.WithCtx(ctx).Debugw("OnStart", "component", info.Component, "type", fmt.Sprintf("%T", input), "input", input, "step", a.stepCount)
-	//fmt.Println("==================")
-	//inputStr, _ := json.MarshalIndent(input, "", "  ")
-	//fmt.Printf("[OnStart] %s\n", string(inputStr))
 	return ctx
 }
 
 func (a *AgentCallback) OnEnd(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
 	duration := time.Since(a.startTime)
-	// default:
 	log.WithCtx(ctx).Debugw("OnEnd", "component", info.Component,
 		"duration", duration, "step", a.stepCount,
 		"type", fmt.Sprintf("%T", output),
 		"output", output)
-	//fmt.Println("=========[OnEnd]=========")
-	//outputStr, _ := json.MarshalIndent(output, "", "  ")
-	//fmt.Println(string(outputStr))
 	return ctx
 }
 
 func (a *AgentCallback) OnError(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
-	// 识别限流错误
 	log.WithCtx(ctx).Errorw("OnError",
 		"component", info.Component,
 		"step", a.stepCount,
 		"error", err)
-
 	return ctx
 }
 
@@ -61,17 +54,11 @@ func (a *AgentCallback) OnStartWithStreamInput(ctx context.Context, info *callba
 	defer input.Close()
 	log.WithCtx(ctx).Debugw("OnStartWithStreamInput", "component", info.Component,
 		"input", input, "type", fmt.Sprintf("%T", input), "step", a.stepCount)
-
-	//fmt.Println("=========[OnStartWithStreamInput]=========")
-	//inputStr, _ := json.MarshalIndent(input, "", "  ")
-	//fmt.Println(string(inputStr))
 	return ctx
 }
 
 func (a *AgentCallback) OnEndWithStreamOutput(ctx context.Context, info *callbacks.RunInfo, output *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
-	//log.WithCtx(ctx).Debugw("OnEndWithStreamOutput", "component", info.Component,
-	//	"output", output, "type", fmt.Sprintf("%T", output), "step", a.stepCount)
-	var graphInfoName = react.GraphName
+	var graphInfoName = "PlanExecuteAgent" // 更新为新的 Agent 名称
 
 	go func() {
 		defer func() {
@@ -80,13 +67,12 @@ func (a *AgentCallback) OnEndWithStreamOutput(ctx context.Context, info *callbac
 			}
 		}()
 
-		defer output.Close() // remember to close the stream in defer
+		defer output.Close()
 
 		fmt.Println("=========[OnEndStream]=========")
 		for {
 			frame, err := output.Recv()
 			if errors.Is(err, io.EOF) {
-				// finish
 				break
 			}
 			if err != nil {
@@ -100,26 +86,159 @@ func (a *AgentCallback) OnEndWithStreamOutput(ctx context.Context, info *callbac
 				return
 			}
 
-			if info.Name == graphInfoName { // 仅打印 graph 的输出, 否则每个 stream 节点的输出都会打印一遍
-
+			if info.Name == graphInfoName {
 				if msg, ok := frame.(*schema.Message); ok {
 					if len(msg.ReasoningContent) > 0 {
 						a.OnReasoning(msg)
 					}
 				}
-
 				fmt.Printf("%s: %s", info.Name, string(s))
 			}
 		}
-
 	}()
 	return ctx
 }
 
+// ==================== Plan-Execute 模式回调 ====================
+
+// PlanExecuteCallback Plan-Execute 模式的回调处理器
+type PlanExecuteCallback struct {
+	mu             sync.Mutex
+	startTime      time.Time
+	currentPlan    *Plan
+	executedSteps  []PlanStep
+	messageHandler func(ctx context.Context, stage string, data map[string]any)
+}
+
+// NewPlanExecuteCallback 创建 Plan-Execute 回调
+func NewPlanExecuteCallback(handler func(ctx context.Context, stage string, data map[string]any)) *PlanExecuteCallback {
+	return &PlanExecuteCallback{
+		messageHandler: handler,
+		executedSteps:  make([]PlanStep, 0),
+	}
+}
+
+// OnPlanningStart 规划开始
+func (c *PlanExecuteCallback) OnPlanningStart(ctx context.Context, query string) {
+	c.startTime = time.Now()
+	c.emit(ctx, "planning_start", map[string]any{
+		"query":     query,
+		"timestamp": time.Now().Unix(),
+	})
+}
+
+// OnPlanningComplete 规划完成
+func (c *PlanExecuteCallback) OnPlanningComplete(ctx context.Context, plan *Plan) {
+	c.mu.Lock()
+	c.currentPlan = plan
+	c.mu.Unlock()
+
+	planJSON, _ := json.Marshal(plan)
+	c.emit(ctx, "planning_complete", map[string]any{
+		"plan":       string(planJSON),
+		"step_count": len(plan.Steps),
+		"duration":   time.Since(c.startTime).String(),
+	})
+}
+
+// OnStepStart 步骤开始
+func (c *PlanExecuteCallback) OnStepStart(ctx context.Context, step *PlanStep, index int) {
+	c.emit(ctx, "step_start", map[string]any{
+		"step_id":     step.ID,
+		"index":       index,
+		"description": step.Description,
+		"tool_name":   step.ToolName,
+		"tool_args":   step.ToolArgs,
+		"reason":      step.Reason,
+	})
+}
+
+// OnStepComplete 步骤完成
+func (c *PlanExecuteCallback) OnStepComplete(ctx context.Context, step *PlanStep, result string, index int) {
+	c.mu.Lock()
+	c.executedSteps = append(c.executedSteps, *step)
+	c.mu.Unlock()
+
+	c.emit(ctx, "step_complete", map[string]any{
+		"step_id": step.ID,
+		"index":   index,
+		"status":  step.Status,
+		"result":  result,
+	})
+}
+
+// OnStepError 步骤错误
+func (c *PlanExecuteCallback) OnStepError(ctx context.Context, step *PlanStep, err error, index int) {
+	c.emit(ctx, "step_error", map[string]any{
+		"step_id": step.ID,
+		"index":   index,
+		"error":   err.Error(),
+	})
+}
+
+// OnReplanStart 重规划开始
+func (c *PlanExecuteCallback) OnReplanStart(ctx context.Context, reason string) {
+	c.emit(ctx, "replan_start", map[string]any{
+		"reason": reason,
+	})
+}
+
+// OnReplanComplete 重规划完成
+func (c *PlanExecuteCallback) OnReplanComplete(ctx context.Context, newPlan *Plan) {
+	c.mu.Lock()
+	c.currentPlan = newPlan
+	c.mu.Unlock()
+
+	planJSON, _ := json.Marshal(newPlan)
+	c.emit(ctx, "replan_complete", map[string]any{
+		"new_plan": string(planJSON),
+	})
+}
+
+// OnExecutionComplete 执行完成
+func (c *PlanExecuteCallback) OnExecutionComplete(ctx context.Context, answer string) {
+	c.emit(ctx, "execution_complete", map[string]any{
+		"answer":     answer,
+		"total_time": time.Since(c.startTime).String(),
+		"step_count": len(c.executedSteps),
+	})
+}
+
+// OnFinalAnswerStream 最终答案流式输出
+func (c *PlanExecuteCallback) OnFinalAnswerStream(ctx context.Context, chunk string) {
+	c.emit(ctx, "answer_stream", map[string]any{
+		"chunk": chunk,
+	})
+}
+
+// emit 发送事件
+func (c *PlanExecuteCallback) emit(ctx context.Context, stage string, data map[string]any) {
+	if c.messageHandler != nil {
+		c.messageHandler(ctx, stage, data)
+	}
+	log.WithCtx(ctx).Debugw("PlanExecuteCallback", "stage", stage, "data", data)
+}
+
+// GetCurrentPlan 获取当前计划
+func (c *PlanExecuteCallback) GetCurrentPlan() *Plan {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.currentPlan
+}
+
+// GetExecutedSteps 获取已执行步骤
+func (c *PlanExecuteCallback) GetExecutedSteps() []PlanStep {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.executedSteps
+}
+
+// ==================== 消息处理（保留原有功能） ====================
+
 type MessageFuture struct {
 	MsgCallback     func(ctx context.Context, stage string, m map[string]any)
-	seenToolCalls   map[string]bool // key: toolCall.ID
-	seenToolResults map[string]bool // key: toolCallID
+	seenToolCalls   map[string]bool
+	seenToolResults map[string]bool
 	seenMessages    map[string]bool
 	seenSetup       int
 	mu              sync.RWMutex
@@ -132,6 +251,7 @@ func NewMessageFuture() *MessageFuture {
 		seenMessages:    make(map[string]bool),
 	}
 }
+
 func (m *MessageFuture) ResetDedup() {
 	m.mu.Lock()
 	clear(m.seenToolCalls)
@@ -141,31 +261,59 @@ func (m *MessageFuture) ResetDedup() {
 	m.mu.Unlock()
 }
 
+// WithMessageFuture 返回 ReAct Agent 所需的选项和消息未来处理器
 func (m *MessageFuture) WithMessageFuture() (agent.AgentOption, react.MessageFuture) {
 	return react.WithMessageFuture()
 }
 
-// HandleIntermediateMessage 处理中间消息
+// ProcessMessageFuture 处理 ReAct Agent 的中间消息流
+func (m *MessageFuture) ProcessMessageFuture(ctx context.Context, msgFuture react.MessageFuture) {
+	iter := msgFuture.GetMessageStreams()
+	for {
+		msg, hasNext, err := iter.Next()
+		if err != nil {
+			log.WithCtx(ctx).Error("Error reading stream: %v", err)
+			break
+		}
+		if !hasNext {
+			log.WithCtx(ctx).Warn("All messages processed")
+			break
+		}
+
+		ss, err := schema.ConcatMessageStream(msg)
+		if err != nil {
+			log.WithCtx(ctx).Error("Error concat message stream: %v", err)
+			continue
+		}
+
+		if ss != nil {
+			// 注意：HandleIntermediateMessage 内部会调用 MsgCallback
+			// 现在 MsgCallback 是发送到 channel，所以这里是安全的
+			m.HandleIntermediateMessage(ctx, ss)
+		}
+	}
+}
+
+// HandleIntermediateMessage 处理中间消息（用于流式输出）
 func (m *MessageFuture) HandleIntermediateMessage(ctx context.Context, msg *schema.Message) {
 	switch {
 	case len(msg.ToolCalls) > 0:
 		var first int
 		for _, call := range msg.ToolCalls {
 			if call.ID == "" {
-				continue // 兜底
+				continue
 			}
 			m.mu.Lock()
 			key := call.ID
 			if m.seenToolCalls[key] {
 				m.mu.Unlock()
-				continue // 已发送，跳过
+				continue
 			}
 
 			m.seenToolCalls[key] = true
 			m.mu.Unlock()
 			m.seenSetup++
 			if first == 0 {
-				// 你的原有逻辑（排序等）
 				m.MsgCallback(ctx, "tool_call_reasoning_content", map[string]any{
 					"event":             "tool_call",
 					"reasoning_content": msg.ReasoningContent,
@@ -177,7 +325,6 @@ func (m *MessageFuture) HandleIntermediateMessage(ctx context.Context, msg *sche
 				})
 				first++
 			} else {
-				// 你的原有逻辑（排序等）
 				m.MsgCallback(ctx, "tool_call", map[string]any{
 					"setup":    m.seenSetup,
 					"event":    "tool_call",
@@ -209,7 +356,6 @@ func (m *MessageFuture) HandleIntermediateMessage(ctx context.Context, msg *sche
 
 	case msg.Role == schema.Assistant && (msg.Content != "" || msg.ReasoningContent != ""):
 		m.seenSetup++
-		// thinking 消息通常不需要严格去重（内容会变化），直接发
 		_, ok := m.seenMessages[msg.ReasoningContent]
 		if ok {
 			return
@@ -219,37 +365,9 @@ func (m *MessageFuture) HandleIntermediateMessage(ctx context.Context, msg *sche
 			"setup":             m.seenSetup,
 			"event":             "thinking",
 			"reasoning_content": msg.ReasoningContent,
-			//"content":          msg, // 或只发 Content + ReasoningContent
 		})
 
 	default:
-		log.WithCtx(ctx).Debug("Unknown message type  ", msg)
-	}
-}
-
-func (m *MessageFuture) ProcessMessageFuture(ctx context.Context, msgFuture react.MessageFuture) {
-	iter := msgFuture.GetMessageStreams()
-	for {
-		msg, hasNext, err := iter.Next()
-		if err != nil {
-			log.WithCtx(ctx).Error("Error reading stream: %v", err)
-			break
-		}
-		if !hasNext {
-			log.WithCtx(ctx).Warn("All messages processed")
-			break
-		}
-
-		ss, err := schema.ConcatMessageStream(msg)
-		if err != nil {
-			log.WithCtx(ctx).Error("Error concat message stream: %v", err)
-			continue
-		}
-
-		if ss != nil {
-			// 注意：HandleIntermediateMessage 内部会调用 MsgCallback
-			// 现在 MsgCallback 是发送到 channel，所以这里是安全的
-			m.HandleIntermediateMessage(ctx, ss)
-		}
+		log.WithCtx(ctx).Debug("Unknown message type", msg)
 	}
 }

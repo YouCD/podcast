@@ -101,58 +101,49 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 	// 使用 WaitGroup 等待所有生产者 goroutine 结束
 	var wg sync.WaitGroup
 
-	future := agent.NewMessageFuture()
-	defer future.ResetDedup()
-
-	// 1. 设置回调：将事件发送到 Channel 而不是直接写入
-	future.MsgCallback = func(ctx context.Context, stage string, m map[string]any) {
-		log.WithCtx(ctx).Debugw(stage, "msg", m)
-		//jsonData, err := json.Marshal(m)
-		//if err != nil {
-		//	log.WithCtx(ctx).Errorf("Failed to marshal response: %v", err)
-		//	return
-		//}
-		//
-		//select {
-		//case sseChan <- SSEEvent{Event: stage, Data: string(jsonData)}:
-		//case <-ctx.Done():
-		//	// 上下文取消，丢弃消息
-		//}
-	}
-
-	futureOpt, msgFuture := future.WithMessageFuture()
-
-	// 2. 启动 Goroutine 处理中间消息
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		future.ProcessMessageFuture(ctx, msgFuture)
-	}()
-
-	// 3. 启动 Goroutine 运行 Agent 并处理主输出流
+	// 启动 Goroutine 运行 Agent 并处理主输出流
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		defer close(sseChan) // 生产者结束时关闭 Channel
 
-		// 创建 Agent 实例
-		agentInstance, err := agent.NewAgent(ctx, input.Content, h.ragCfg)
+		// 创建 Agent 实例（使用 Plan-Execute 模式）
+		agentInstance, err := agent.NewAgent(ctx, h.ragCfg)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("Failed to create RAG Agent: %v", err)
 			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("Failed to create RAG Agent: %v", err)})
 			sseChan <- SSEEvent{Event: "error", Data: string(errResp)}
 			return
 		}
-		ragAgent, err := agentInstance.BuildRAGAgent(ctx)
+
+		// 设置消息回调处理函数
+		messageHandler := func(ctx context.Context, stage string, data map[string]any) {
+			log.WithCtx(ctx).Debugw(stage, "data", data)
+			jsonData, err := json.Marshal(data)
+			if err != nil {
+				log.WithCtx(ctx).Errorf("Failed to marshal response: %v", err)
+				return
+			}
+			select {
+			case sseChan <- SSEEvent{Event: stage, Data: string(jsonData)}:
+			case <-ctx.Done():
+			}
+		}
+
+		// 构建 Plan-Execute Agent
+		planExecuteAgent, err := agentInstance.BuildPlanExecuteAgent(messageHandler)
 		if err != nil {
-			log.WithCtx(ctx).Errorf("Failed to init rag agent: %v", err)
-			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("Failed to init rag agent: %v", err)})
+			log.WithCtx(ctx).Errorf("Failed to init Plan-Execute agent: %v", err)
+			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("Failed to init Plan-Execute agent: %v", err)})
 			sseChan <- SSEEvent{Event: "error", Data: string(errResp)}
 			return
 		}
 
-		// 启动 Agent 流式处理
-		stream, err := ragAgent.Stream(ctx, messages, futureOpt)
+		// 构建用户输入消息
+		userMessage := schema.UserMessage(input.Content)
+
+		// 启动 Plan-Execute Agent 流式处理
+		stream, err := planExecuteAgent.Stream(ctx, userMessage)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("RAG query failed: %v", err)
 			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("RAG query failed: %v", err)})

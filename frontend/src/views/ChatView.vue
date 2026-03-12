@@ -372,12 +372,6 @@ const onSubmit = async (evt: string) => {
 
   await setMsg(currentSession.value!.session_id, "user", uuidStr, evt)
 
-  // 创建会话
-  if (sessionData.value) {
-    if (sessionData.value!.messages.length === 1) {
-      await createNewSessionAction(currentSession.value!.session_id);
-    }
-  }
 
   let u=uuidv4()
   await setMsg(currentSession.value!.session_id, "assistant", u, undefined, undefined, true)
