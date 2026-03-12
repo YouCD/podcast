@@ -121,19 +121,34 @@
                 v-else
                 :loading="msg.loading"
             >
-              <!-- 思考过程切换按钮 -->
-              <div
-                  v-if="msg.reasoning_content!=''"
-                  class="think-toggle-btn"
-                  @click="()=>{msg.showReasoningContent=!msg.showReasoningContent}"
-              >
-                <i class="icon-point"></i>
-                <span>{{ msg.showReasoningContent ? '隐藏思考过程' : '显示思考过程' }}</span>
-                <i :class="msg.showReasoningContent   ? 'icon-chevron-up' : 'icon-chevron-down'"></i>
-              </div>
+
+              <!-- 计划卡片 -->
+              <PlanCard 
+                v-if="msg.plan && msg.plan.query" 
+                :plan="msg.plan" 
+                :steps="msg.steps"
+              />
+              
+              <!-- 思考过程卡片 -->
+              <ThinkCard 
+                v-if="msg.think_content" 
+                :content="msg.think_content" 
+                :enableTyping="false"
+              />
+              
+              <!-- 原有的思考过程切换按钮（兼容旧数据） -->
+<!--              <div-->
+<!--                  v-if="msg.reasoning_content!=''"-->
+<!--                  class="think-toggle-btn"-->
+<!--                  @click="()=>{msg.showReasoningContent=!msg.showReasoningContent}"-->
+<!--              >-->
+<!--                <i class="icon-point"></i>-->
+<!--                <span>{{ msg.showReasoningContent ? '隐藏思考过程' : '显示思考过程' }}</span>-->
+<!--                <i :class="msg.showReasoningContent   ? 'icon-chevron-up' : 'icon-chevron-down'"></i>-->
+<!--              </div>-->
               <Typing v-if="msg.showReasoningContent && msg.reasoning_content!=''" :enableTyping="msg.reasoning_typing"
                       :msg="msg.reasoning_content"></Typing>
-              <McMarkdownCard :content="msg.content" :typing="msg.typing"/>
+              <McMarkdownCard v-if="msg.content" :content="msg.content" :typing="msg.typing"/>
             </McBubble>
           </template>
         </McLayoutContent>
@@ -222,13 +237,16 @@ import {fetchEventSource} from "@microsoft/fetch-event-source";
 import {computed, nextTick, onBeforeMount, onMounted, onUnmounted, ref} from "vue";
 import {v4 as uuidv4} from "uuid";
 import {useUserStore} from "@/stores/user.ts";
-import type {sessionItem, messageInfo, msgRequest} from "@/types/types.ts";
+import type {sessionItem, messageInfo, msgRequest, PlanData, StepInfo, PlanCreatedEvent, StepStartEvent, StepResultEvent} from "@/types/types.ts";
 import {useChatRecordsStore} from "@/stores/chat.ts";
 import {storeToRefs} from "pinia";
 import {Button} from "vue-devui/button";
 import "vue-devui/button/style.css";
 import {changeTitleHandler} from "@/api/chat.ts";
 import Typing from "@/components/Typing.vue";
+import PlanCard from "@/components/PlanCard.vue";
+import StepCard from "@/components/StepCard.vue";
+import ThinkCard from "@/components/ThinkCard.vue";
 
 const currentUserId = ref<string>("9527");
 const userStore = useUserStore();
@@ -244,6 +262,10 @@ const {
   setMsg,
   changeTitleHandlerAction,
   SetReasoningTyping,
+  setPlan,
+  setStep,
+  setStepResult,
+  setThinkContent,
 } = chatRecordsStore;
 const {sessionList, sessionData} = storeToRefs(chatRecordsStore);
 
@@ -290,6 +312,16 @@ const MOBILE_BREAKPOINT = 768; // 移动端断点
 
 // 思考过程控制
 const thinkContent = ref(""); // 累积思考内容
+
+// 切换步骤展开状态
+const toggleStepExpand = (msg: any, stepId: number) => {
+  if (msg.steps) {
+    const step = msg.steps.find((s: any) => s.step_id === stepId);
+    if (step) {
+      step.expanded = !step.expanded;
+    }
+  }
+};
 
 // 检测是否为移动端
 const checkMobile = () => {
@@ -413,12 +445,56 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
     signal: ctrl.signal,
     body: JSON.stringify(requestData),
     onmessage: (event: any) => {
+      // 处理 plan_created 事件
+      if (event.event === "plan_created") {
+        try {
+          const data = JSON.parse(event.data);
+          const planData = JSON.parse(data.plan);
+          setPlan(uuidStr, planData);
+          scrollToBottom();
+        } catch (e) {
+          console.error("plan_created parse error", e);
+        }
+      }
+      
+      // 处理 step_start 事件
+      if (event.event === "step_start") {
+        try {
+          const data = JSON.parse(event.data);
+          setStep(uuidStr, {
+            step_id: data.step_id,
+            description: data.description,
+            reason: data.reason,
+            tool_name: data.tool_name,
+            status: 'running',
+          });
+          scrollToBottom();
+        } catch (e) {
+          console.error("step_start parse error", e);
+        }
+      }
+      
+      // 处理 step_result 事件
+      if (event.event === "step_result") {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("step_result event:", data);
+          setStepResult(uuidStr, data.step_id, data.result, data.status, data.tool_args);
+          scrollToBottom();
+        } catch (e) {
+          console.error("step_result parse error", e);
+        }
+      }
+      
+      // 处理 think 事件
       if (event.event === "think") {
         const data = JSON.parse(event.data);
         thinkContent.value += data.message;
-        setMsg(currentSession.value!.session_id, "assistant", uuidStr, undefined, data.message)
+        setThinkContent(uuidStr, data.message);
+        scrollToBottom();
       }
 
+      // 处理 message 事件
       if (event.event === "message") {
         try {
           const data = JSON.parse(event.data);
@@ -427,12 +503,6 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
             response.value += data.message;
             if (data.data === '{"end":true}') {
               console.log("Ai END");
-              // nextTick(() => {
-              //   conversationRef.value?.scrollTo({
-              //     top: conversationRef.value.scrollHeight,
-              //     behavior: "smooth",
-              //   });
-              // });
               scrollToBottom();
               return;
             }
@@ -445,13 +515,39 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
     },
     onclose: async () => {
       console.log("SSE closed");
-      await sendMessageAction({
+      
+      // 从 sessionData 中获取完整的消息数据
+      const message = sessionData.value?.messages.find((m) => m.uuid === uuidStr);
+      console.log("onclose: message found?", !!message);
+      console.log("onclose: message.steps?", message?.steps ? JSON.stringify(message.steps).substring(0, 500) : 'undefined');
+      
+      // 构建完整的消息数据发送给后端保存
+      // 使用 any 类型因为需要将 plan 和 steps 序列化为字符串发送给后端
+      const messageData: any = {
         session_id: currentSession.value!.session_id,
         reasoning_content: thinkContent.value,
         content: response.value,
         role: "assistant",
         uuid: uuidStr,
-      })
+      };
+      
+      // 如果有计划数据，序列化后发送
+      if (message?.plan) {
+        messageData.plan = JSON.stringify(message.plan);
+      }
+      
+      // 如果有步骤数据，序列化后发送
+      if (message?.steps && Array.isArray(message.steps) && message.steps.length > 0) {
+        messageData.steps = JSON.stringify(message.steps);
+        console.log("onclose: sending steps to backend:", messageData.steps.substring(0, 500));
+      }
+      
+      // 如果有思考内容，发送
+      if (message?.think_content) {
+        messageData.think_content = message.think_content;
+      }
+      
+      await sendMessageAction(messageData);
       SetReasoningTyping(uuidStr, false)
 
       if (currentSession.value!.title == "新会话") {

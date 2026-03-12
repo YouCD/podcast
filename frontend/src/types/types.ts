@@ -186,8 +186,109 @@ export interface msgRequest {
   showReasoningContent?: boolean|undefined;
   reasoning_typing?: boolean|undefined;
   loading?: boolean|undefined;
+  // 新增：计划相关（前端渲染时为对象）
+  plan?: PlanData;
+  // 新增：步骤列表（前端渲染时为对象数组）
+  steps?: StepInfo[];
+  // 新增：思考内容（流式）
+  think_content?: string;
+  // 消息类型标识
+  message_type?: 'normal' | 'plan' | 'step';
 }
+
+// 用于发送给后端的消息类型（plan 和 steps 为 JSON 字符串）
+export interface msgRequestForBackend {
+  id?: number;
+  created_at?: string;
+  session_id: string;
+  role: string;
+  content?: string;
+  uuid: string;
+  reasoning_content: string;
+  // 发送给后端时为 JSON 字符串
+  plan?: string;
+  steps?: string;
+  think_content?: string;
+  message_type?: 'normal' | 'plan' | 'step';
+}
+// 后端返回的原始消息类型（plan 和 steps 为 JSON 字符串）
+export interface RawMessage {
+  id?: number;
+  created_at?: string;
+  session_id: string;
+  role: string;
+  content?: string;
+  uuid: string;
+  reasoning_content: string;
+  // 后端返回时为 JSON 字符串
+  plan?: string;
+  steps?: string;
+  think_content?: string;
+  message_type?: 'normal' | 'plan' | 'step';
+}
+
 export interface sessionResponse {
-  messages: msgRequest[];
+  messages: RawMessage[];
   session: sessionItem;
+}
+
+// ===== 新增：计划和步骤相关类型定义 =====
+
+// 计划步骤定义
+export interface PlanStep {
+  id: number;
+  description: string;
+  tool_name: string;
+  tool_args: string;
+  reason: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  // result?: string;
+}
+
+// 计划数据
+export interface PlanData {
+  query: string;
+  steps: PlanStep[];
+  current_step: number;
+  is_complete: boolean;
+}
+
+// 步骤信息（用于渲染）
+export interface StepInfo {
+  step_id: number;
+  description: string;
+  reason: string;
+  tool_name: string;
+  tool_args?: Record<string, any>;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  result?: string;
+  expanded?: boolean; // 是否展开结果
+}
+
+// SSE 事件数据类型
+export interface PlanCreatedEvent {
+  plan: PlanData;
+}
+
+export interface StepStartEvent {
+  step_id: number;
+  description: string;
+  reason: string;
+  tool_name: string;
+}
+
+export interface StepResultEvent {
+  step_id: number;
+  result: string;
+  status: 'completed' | 'failed';
+  tool_args?: Record<string, any>;
+}
+
+export interface ThinkEvent {
+  message: string;
+}
+
+export interface MessageEvent {
+  message: string;
+  data?: string;
 }

@@ -233,6 +233,10 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		Content          string `json:"content"`
 		UUID             string `json:"uuid" binding:"required"`
 		ReasoningContent string `json:"reasoning_content"`
+		// 新增字段
+		Plan         string `json:"plan"`          // 计划数据（JSON字符串）
+		Steps        string `json:"steps"`         // 步骤数据（JSON字符串）
+		ThinkContent string `json:"think_content"` // 思考内容
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorWithMessage(c, "Invalid request format: "+err.Error())
@@ -246,6 +250,9 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		Content:          req.Content,
 		ReasoningContent: req.ReasoningContent,
 		UUID:             req.UUID,
+		Plan:             req.Plan,
+		Steps:            req.Steps,
+		ThinkContent:     req.ThinkContent,
 	}
 
 	if err := h.chatService.CreateMessage(newMessage); err != nil {

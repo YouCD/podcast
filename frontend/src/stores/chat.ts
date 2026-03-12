@@ -9,11 +9,37 @@ import {
     getChatRecordsByUserId,
     sendMsg,
 } from "@/api/chat.ts";
-import type {changeTitleReq, messageInfo, msgRequest, sessionItem, sessionResponse,} from "@/types/types.ts";
+import type {changeTitleReq, messageInfo, msgRequest, sessionItem, sessionResponse, PlanData, StepInfo,} from "@/types/types.ts";
+
+// 解析后的消息类型（plan 和 steps 为对象）
+export interface ParsedMessage {
+    id?: number;
+    created_at?: string;
+    session_id: string;
+    role: string;
+    content?: string;
+    uuid: string;
+    reasoning_content: string;
+    showReasoningContent?: boolean;
+    reasoning_typing?: boolean;
+    typing?: boolean;
+    loading?: boolean;
+    // 解析后为对象
+    plan?: PlanData;
+    steps?: StepInfo[];
+    think_content?: string;
+    message_type?: 'normal' | 'plan' | 'step';
+}
+
+// 解析后的会话响应类型
+export interface ParsedSessionResponse {
+    messages: ParsedMessage[];
+    session: sessionItem;
+}
 
 interface State {
     sessionList: sessionItem[];
-    sessionData: sessionResponse | null;
+    sessionData: ParsedSessionResponse | null;
     loading: boolean;
     error: string | null;
 }
@@ -52,15 +78,82 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
             setError(null);
 
             const resp = await getChatRecordBySessionId(sessionId);
-            state.value.sessionData = resp;
-            state.value.sessionData!.session = resp.session;
-            state.value.sessionData!.messages = resp.messages.map((message) => {
+            
+            // 解析消息中的 JSON 字符串字段
+            const parsedMessages: ParsedMessage[] = resp.messages.map((message) => {
+                // 解析 plan 字段（如果是 JSON 字符串）
+                let plan: PlanData | undefined = undefined;
+                if (typeof message.plan === 'string' && message.plan && message.plan.trim() !== '') {
+                    try {
+                        plan = JSON.parse(message.plan) as PlanData;
+                    } catch (e) {
+                        console.error('Failed to parse plan:', e);
+                        plan = undefined;
+                    }
+                }
+                
+                // 解析 steps 字段（如果是 JSON 字符串）
+                let steps: StepInfo[] | undefined = undefined;
+                const stepsRaw = message.steps;
+                console.log('Raw steps for message:', message.uuid, 'type:', typeof stepsRaw, 'value:', stepsRaw);
+                
+                if (typeof stepsRaw === 'string' && stepsRaw) {
+                    const trimmed = stepsRaw.trim();
+                    console.log('Steps is string, trimmed length:', trimmed.length, 'first 50 chars:', trimmed.substring(0, 50));
+                    
+                    if (trimmed !== '') {
+                        try {
+                            const parsed = JSON.parse(trimmed);
+                            console.log('JSON.parse succeeded, type:', typeof parsed, 'isArray:', Array.isArray(parsed));
+                            if (Array.isArray(parsed)) {
+                                steps = parsed as StepInfo[];
+                                console.log('Parsed steps for message:', message.uuid, 'steps count:', steps.length);
+                                if (steps.length > 0 && steps[0]) {
+                                    console.log('First step has result:', !!steps[0].result);
+                                }
+                            } else {
+                                console.error('Parsed steps is not an array:', typeof parsed);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse steps:', e);
+                            steps = undefined;
+                        }
+                    } else {
+                        console.log('Steps string is empty after trim');
+                    }
+                } else {
+                    console.log('Steps is not a string or is falsy:', typeof stepsRaw, !!stepsRaw);
+                }
+                
+                console.log('Final parsed message:', message.uuid, {
+                    hasPlan: !!plan,
+                    hasSteps: !!steps,
+                    stepsCount: steps ? steps.length : 0
+                });
+                
                 return {
-                    ...message,
+                    id: message.id,
+                    created_at: message.created_at,
+                    session_id: message.session_id,
+                    role: message.role,
+                    content: message.content,
+                    uuid: message.uuid,
+                    reasoning_content: message.reasoning_content,
+                    think_content: message.think_content,
+                    message_type: message.message_type,
+                    // 解析后的对象
+                    plan: plan,
+                    steps: steps,
+                    // UI 状态
                     showReasoningContent: false,
                     typing: false,
-                }
+                } as ParsedMessage;
             });
+            
+            state.value.sessionData = {
+                messages: parsedMessages,
+                session: resp.session,
+            };
             return resp;
         } catch (err: any) {
             setError(err.message || "获取聊天记录失败");
@@ -80,6 +173,90 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
             }
         })
     }
+    
+    // 新增：设置计划数据
+    const setPlan = (uuid: string, plan: any) => {
+        if (state.value.sessionData) {
+            const message = state.value.sessionData.messages.find((m) => m.uuid === uuid);
+            if (message) {
+                message.loading = false;
+                message.plan = plan;
+            }
+        }
+    };
+    
+    // 新增：添加或更新步骤
+    const setStep = (uuid: string, step: any) => {
+        if (state.value.sessionData) {
+            const message = state.value.sessionData.messages.find((m) => m.uuid === uuid);
+            if (message) {
+                if (!message.steps) {
+                    message.steps = [];
+                }
+                const steps = message.steps;
+                const existingIndex = steps.findIndex((s: any) => s.step_id === step.step_id);
+                if (existingIndex >= 0) {
+                    // 更新现有步骤
+                    steps[existingIndex] = { ...steps[existingIndex], ...step };
+                } else {
+                    // 添加新步骤
+                    steps.push({ ...step, expanded: false });
+                }
+                console.log('setStep: steps updated', JSON.stringify(message.steps));
+            }
+        }
+    };
+    
+    // 新增：更新步骤结果
+    const setStepResult = (uuid: string, stepId: number, result: string, status: 'pending' | 'running' | 'completed' | 'failed', toolArgs?: any) => {
+        console.log('setStepResult called:', { uuid, stepId, result: result?.substring(0, 100), status, toolArgs });
+        if (state.value.sessionData) {
+            const message = state.value.sessionData.messages.find((m) => m.uuid === uuid);
+            console.log('setStepResult: message found?', !!message);
+            console.log('setStepResult: message.steps?', message?.steps ? JSON.stringify(message.steps).substring(0, 200) : 'undefined');
+            if (message && message.steps) {
+                const steps = message.steps;
+                const step = steps.find((s: any) => s.step_id === stepId);
+                console.log('setStepResult: step found?', !!step, 'step_id:', stepId);
+                if (step) {
+                    step.result = result;
+                    step.status = status;
+                    if (toolArgs) {
+                        step.tool_args = toolArgs;
+                    }
+                    console.log('setStepResult: step updated', JSON.stringify(step).substring(0, 200));
+                }
+            }
+        }
+    };
+    
+    // 新增：设置思考内容
+    const setThinkContent = (uuid: string, content: string) => {
+        if (state.value.sessionData) {
+            const message = state.value.sessionData.messages.find((m) => m.uuid === uuid);
+            if (message) {
+                if (!message.think_content) {
+                    message.think_content = '';
+                }
+                message.think_content += content;
+            }
+        }
+    };
+    
+    // 新增：切换步骤展开状态
+    const toggleStepExpand = (uuid: string, stepId: number) => {
+        if (state.value.sessionData) {
+            const message = state.value.sessionData.messages.find((m) => m.uuid === uuid);
+            if (message && message.steps) {
+                const steps = message.steps;
+                const step = steps.find((s: any) => s.step_id === stepId);
+                if (step) {
+                    step.expanded = !step.expanded;
+                }
+            }
+        }
+    };
+    
     const setMsg = async (sessionId: string, role: string, uuid: string, msg?: string, reasoning_content?: string, loading?: boolean) => {
         if (state.value.sessionData && role === "user") {
             let mm = {
@@ -265,5 +442,11 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
         clearMsg,
         SetReasoningTyping,
         changeTitleHandlerAction,
+        // 新增方法
+        setPlan,
+        setStep,
+        setStepResult,
+        setThinkContent,
+        toggleStepExpand,
     };
 });
