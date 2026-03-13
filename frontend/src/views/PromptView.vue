@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
-import {usePromptStore} from "@/stores/prompt";
-import type {CreatePromptRequest, UpdatePromptRequest} from "@/types/types";
+import { onMounted, ref } from "vue";
+import { usePromptStore } from "@/stores/prompt";
+import type { CreatePromptRequest, UpdatePromptRequest } from "@/types/types";
 import notificationService from "@/components/Notification/notificationService";
-import {getTruncatedData} from "@/util/tools.ts";
+import { getTruncatedData } from "@/util/tools.ts";
 
 // 使用store
 const promptStore = usePromptStore();
@@ -74,8 +74,8 @@ const handleUpdate = async () => {
   };
 
   const result = await promptStore.updateExistingPrompt(
-      editingId.value,
-      requestData,
+    editingId.value,
+    requestData,
   );
   if (result) {
     notificationService.success("Prompt更新成功");
@@ -139,8 +139,8 @@ onMounted(() => {
 });
 </script>
 <script lang="ts">
-import {defineComponent} from "vue";
-import {useUserStore} from "@/stores/user.ts";
+import { defineComponent } from "vue";
+import { useUserStore } from "@/stores/user.ts";
 
 export default defineComponent({
   async beforeRouteEnter(to, from, next) {
@@ -163,9 +163,9 @@ export default defineComponent({
     <div class="header">
       <h1>Prompt 管理</h1>
       <button
-          class="button primary"
-          @click="showCreateForm = true"
-          :disabled="promptStore.loading"
+        class="button primary"
+        @click="showCreateForm = true"
+        :disabled="promptStore.loading"
       >
         {{ promptStore.loading ? "加载中..." : "新建Prompt" }}
       </button>
@@ -187,9 +187,9 @@ export default defineComponent({
       </div>
 
       <div
-          v-for="prompt in promptStore.prompts"
-          :key="prompt.id"
-          class="prompt-item"
+        v-for="prompt in promptStore.prompts"
+        :key="prompt.id"
+        class="prompt-item"
       >
         <div class="prompt-header">
           <h3>{{ prompt.key_name }}</h3>
@@ -198,8 +198,8 @@ export default defineComponent({
               编辑
             </button>
             <button
-                class="button danger small"
-                @click="handleDelete(prompt.id)"
+              class="button danger small"
+              @click="handleDelete(prompt.id)"
             >
               删除
             </button>
@@ -208,14 +208,14 @@ export default defineComponent({
         <div class="prompt-content">
           <div class="content-display" @click="toggleExpand(prompt.id)">
             <highlightjs
-                v-if="isExpanded(prompt.id)"
-                language="markdown"
-                :code="prompt.data"
+              v-if="isExpanded(prompt.id)"
+              language="markdown"
+              :code="prompt.data"
             />
             <highlightjs
-                v-else
-                language="markdown"
-                :code="getTruncatedData(prompt.data)"
+              v-else
+              language="markdown"
+              :code="getTruncatedData(prompt.data)"
             />
             <div class="expand-indicator">
               {{ isExpanded(prompt.id) ? "收起 ↑" : "展开 ↓" }}
@@ -240,19 +240,19 @@ export default defineComponent({
           <div class="form-group">
             <label>Key Name:</label>
             <input
-                v-model="formData.key_name"
-                type="text"
-                placeholder="请输入Key Name"
-                class="form-input"
+              v-model="formData.key_name"
+              type="text"
+              placeholder="请输入Key Name"
+              class="form-input"
             />
           </div>
           <div class="form-group">
             <label>Data:</label>
             <textarea
-                v-model="formData.data"
-                placeholder="请输入Prompt内容"
-                class="form-textarea"
-                rows="10"
+              v-model="formData.data"
+              placeholder="请输入Prompt内容"
+              class="form-textarea"
+              rows="10"
             ></textarea>
           </div>
         </div>
@@ -274,19 +274,19 @@ export default defineComponent({
           <div class="form-group">
             <label>Key Name:</label>
             <input
-                v-model="formData.key_name"
-                type="text"
-                placeholder="请输入Key Name"
-                class="form-input"
+              v-model="formData.key_name"
+              type="text"
+              placeholder="请输入Key Name"
+              class="form-input"
             />
           </div>
           <div class="form-group">
             <label>Data:</label>
             <textarea
-                v-model="formData.data"
-                placeholder="请输入Prompt内容"
-                class="form-textarea"
-                rows="10"
+              v-model="formData.data"
+              placeholder="请输入Prompt内容"
+              class="form-textarea"
+              rows="10"
             ></textarea>
           </div>
         </div>

@@ -2,16 +2,16 @@
   <main>
     <div class="tab-container">
       <button
-          class="tab-button"
-          :class="{ active: currentTab === 1 }"
-          @click="switchTab(1)"
+        class="tab-button"
+        :class="{ active: currentTab === 1 }"
+        @click="switchTab(1)"
       >
         日报
       </button>
       <button
-          class="tab-button"
-          :class="{ active: currentTab === 2 }"
-          @click="switchTab(2)"
+        class="tab-button"
+        :class="{ active: currentTab === 2 }"
+        @click="switchTab(2)"
       >
         周报
       </button>
@@ -29,17 +29,17 @@
           </h2>
           <span class="li-meta" v-if="currentTab == 1">
             <span
-                class="iconfont"
-                style="color: #fcc630; font-size: 25px"
-                @click.stop="playerPodcast(report)"
-            >{{ iconHandel(report) }}</span
+              class="iconfont"
+              style="color: #fcc630; font-size: 25px"
+              @click.stop="playerPodcast(report)"
+              >{{ iconHandel(report) }}</span
             >
           </span>
         </div>
         <div class="report-meta">
           <span v-if="currentTab === 2">日期范围: {{ report.time_array }}</span>
           <span
-          >生成时间:
+            >生成时间:
             {{ moment(report.created_at).format("MM-DD HH:mm:ss") }}</span
           >
         </div>
@@ -47,34 +47,43 @@
     </div>
 
     <div class="no-reports" v-else>
-      <LoadingView2 v-if="loading"/>
+      <LoadingView2 v-if="loading" />
       <p v-else>暂无报告数据</p>
     </div>
 
     <div
-        class="audio-player-container"
-        v-show="showPlayer && audioList.length > 0"
+      class="audio-player-container"
+      v-show="showPlayer && audioList.length > 0"
     >
       <AudioPlayer
-          ref="audioPlayerRef"
-          :audio-data="audioList[0]"
-          :auto-play="true"
-          @ended="endedHandler"
-          @close="togglePlayer"
-          @time-update="onTimeUpdate"
-          :icon-style="{ color: '#ffffff', fontSize: '13px' }"
+        ref="audioPlayerRef"
+        :audio-data="audioList[0]"
+        :auto-play="true"
+        @ended="endedHandler"
+        @close="togglePlayer"
+        @time-update="onTimeUpdate"
+        :icon-style="{ color: '#ffffff', fontSize: '13px' }"
       />
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import {computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch,} from "vue";
-import {fetchReports, genDailyReport} from "@/api/reports";
-import type {Report} from "@/types/types";
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import { fetchReports, genDailyReport } from "@/api/reports";
+import type { Report } from "@/types/types";
 import moment from "moment";
 import LoadingView2 from "@/components/LoadingView2.vue";
-import {iconHandel} from "@/util/tools.ts";
+import { iconHandel } from "@/util/tools.ts";
 import AudioPlayer from "@/components/AudioPlayer.vue";
 
 const reports = ref<Report[]>([]);
@@ -167,9 +176,9 @@ const playerPodcast = async (p: Report) => {
     // 如果返回了 HTML 内容，在新窗口中打开
     if (result) {
       // 使用 Blob URL 方式打开 HTML 内容（现代方法，避免使用 document.write）
-      const blob = new Blob([result], { type: 'text/html' });
+      const blob = new Blob([result], { type: "text/html" });
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      window.open(url, "_blank");
       // 可选：在页面卸载时清理 URL
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
@@ -225,8 +234,8 @@ const togglePlayer = () => {
   if (audioPlayerRef.value && currentPodcast.value) {
     const currentTime = audioPlayerRef.value.getCurrentTime();
     localStorage.setItem(
-        `podcast-position-${currentPodcast.value.id}`,
-        currentTime.toString(),
+      `podcast-position-${currentPodcast.value.id}`,
+      currentTime.toString(),
     );
   }
 

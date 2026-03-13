@@ -10,7 +10,7 @@
 
       <div class="filters">
         <label v-for="type in relationTypes" :key="type">
-          <input type="checkbox" v-model="activeRelations" :value="type"/>
+          <input type="checkbox" v-model="activeRelations" :value="type" />
           <span :style="{ color: getRelationColor(type) }">{{ type }}</span>
         </label>
       </div>
@@ -24,11 +24,11 @@
 </template>
 
 <script setup>
-import {computed, onBeforeUnmount, onMounted, ref, watch} from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import * as d3 from "d3";
 
 const props = defineProps({
-  data: {type: Array, default: () => []},
+  data: { type: Array, default: () => [] },
   loading: Boolean,
 });
 
@@ -188,19 +188,19 @@ const initGraph = () => {
   d3.select(container.value).selectAll("*").remove();
 
   svg.value = d3
-      .select(container.value)
-      .append("svg")
-      .attr("width", width)
-      .attr("height", height);
+    .select(container.value)
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
 
   g.value = svg.value.append("g");
 
   zoomBehavior.value = d3
-      .zoom()
-      .scaleExtent([0.1, 4])
-      .on("zoom", (event) => {
-        g.value.attr("transform", event.transform);
-      });
+    .zoom()
+    .scaleExtent([0.1, 4])
+    .on("zoom", (event) => {
+      g.value.attr("transform", event.transform);
+    });
 
   svg.value.call(zoomBehavior.value);
 
@@ -213,33 +213,33 @@ const initGraph = () => {
   //     .force('center', d3.forceCenter(width/2, height/2))
   //     .force('collision', d3.forceCollide().radius(d=>d.radius+8))
   simulation.value = d3
-      .forceSimulation(nodes.value)
-      .force(
-          "link",
-          d3
-              .forceLink(graphData.value.links)
-              .id((d) => d.id)
-              .distance((d) => {
-                if (d.type === "基于") return 50;
-                if (d.type === "所属行业") return 70;
-                return 80;
-              })
-              .strength(0.8),
-      )
-      .force(
-          "charge",
-          d3.forceManyBody().strength((d) => (d.type === "企业" ? -300 : -120)),
-      )
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force(
-          "collision",
-          d3
-              .forceCollide()
-              .radius((d) => d.radius + 4)
-              .strength(1),
-      )
-      .force("x", d3.forceX(width / 2).strength(0.1))
-      .force("y", d3.forceY(height / 2).strength(0.1));
+    .forceSimulation(nodes.value)
+    .force(
+      "link",
+      d3
+        .forceLink(graphData.value.links)
+        .id((d) => d.id)
+        .distance((d) => {
+          if (d.type === "基于") return 50;
+          if (d.type === "所属行业") return 70;
+          return 80;
+        })
+        .strength(0.8),
+    )
+    .force(
+      "charge",
+      d3.forceManyBody().strength((d) => (d.type === "企业" ? -300 : -120)),
+    )
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force(
+      "collision",
+      d3
+        .forceCollide()
+        .radius((d) => d.radius + 4)
+        .strength(1),
+    )
+    .force("x", d3.forceX(width / 2).strength(0.1))
+    .force("y", d3.forceY(height / 2).strength(0.1));
 
   //  企业固定中心，其他围绕
   // simulation.value.force('radial',
@@ -253,103 +253,103 @@ const initGraph = () => {
   const defs = svg.value.append("defs");
   Object.keys(relationColors).forEach((type) => {
     defs
-        .append("marker")
-        .attr("id", `arrow-${type}`)
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 20)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", relationColors[type]);
+      .append("marker")
+      .attr("id", `arrow-${type}`)
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 20)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", relationColors[type]);
   });
 
   const link = g.value
-      .append("g")
-      .selectAll("line")
-      .data(graphData.value.links)
-      .join("line")
-      .attr("stroke", (d) => getRelationColor(d.type))
-      .attr("stroke-width", 1.8)
-      .attr("stroke-opacity", 0.6)
-      .attr("marker-end", (d) => `url(#arrow-${d.type})`);
+    .append("g")
+    .selectAll("line")
+    .data(graphData.value.links)
+    .join("line")
+    .attr("stroke", (d) => getRelationColor(d.type))
+    .attr("stroke-width", 1.8)
+    .attr("stroke-opacity", 0.6)
+    .attr("marker-end", (d) => `url(#arrow-${d.type})`);
 
   const node = g.value
-      .append("g")
-      .selectAll("g")
-      .data(nodes.value)
-      .join("g")
-      .call(
-          d3
-              .drag()
-              .on("start", (e, d) => {
-                if (!e.active) simulation.value.alphaTarget(0.3).restart();
-                d.fx = d.x;
-                d.fy = d.y;
-              })
-              .on("drag", (e, d) => {
-                d.fx = e.x;
-                d.fy = e.y;
-              })
-              .on("end", (e, d) => {
-                if (!e.active) simulation.value.alphaTarget(0);
-                d.fx = null;
-                d.fy = null;
-              }),
-      );
+    .append("g")
+    .selectAll("g")
+    .data(nodes.value)
+    .join("g")
+    .call(
+      d3
+        .drag()
+        .on("start", (e, d) => {
+          if (!e.active) simulation.value.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on("drag", (e, d) => {
+          d.fx = e.x;
+          d.fy = e.y;
+        })
+        .on("end", (e, d) => {
+          if (!e.active) simulation.value.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        }),
+    );
 
   node
-      .append("circle")
-      .attr("r", (d) => d.radius)
-      .attr("fill", (d) => {
-        if (d.type === "企业") return "#0f172a";
-        if (d.type === "行业") return "#f8fafc";
-        return getRelationColor(d.type);
-      })
-      .attr("stroke", (d) => {
-        if (d.type === "企业") return "#3b82f6";
-        if (d.type === "行业") return "#cbd5e1";
-        return "white";
-      })
-      .attr("stroke-width", 2)
-      .style("filter", (d) =>
-          d.type === "企业"
-              ? "drop-shadow(0 0 8px rgba(59,130,246,0.4))"
-              : "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
-      );
+    .append("circle")
+    .attr("r", (d) => d.radius)
+    .attr("fill", (d) => {
+      if (d.type === "企业") return "#0f172a";
+      if (d.type === "行业") return "#f8fafc";
+      return getRelationColor(d.type);
+    })
+    .attr("stroke", (d) => {
+      if (d.type === "企业") return "#3b82f6";
+      if (d.type === "行业") return "#cbd5e1";
+      return "white";
+    })
+    .attr("stroke-width", 2)
+    .style("filter", (d) =>
+      d.type === "企业"
+        ? "drop-shadow(0 0 8px rgba(59,130,246,0.4))"
+        : "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
+    );
   //  hover 高亮：
   node
-      .on("mouseover", function () {
-        d3.select(this)
-            .select("circle")
-            .transition()
-            .duration(200)
-            .attr("r", (d) => d.radius + 3);
-      })
-      .on("mouseout", function () {
-        d3.select(this)
-            .select("circle")
-            .transition()
-            .duration(200)
-            .attr("r", (d) => d.radius);
-      });
+    .on("mouseover", function () {
+      d3.select(this)
+        .select("circle")
+        .transition()
+        .duration(200)
+        .attr("r", (d) => d.radius + 3);
+    })
+    .on("mouseout", function () {
+      d3.select(this)
+        .select("circle")
+        .transition()
+        .duration(200)
+        .attr("r", (d) => d.radius);
+    });
 
   node
-      .append("text")
-      .attr("dy", 4)
-      .attr("text-anchor", "middle")
-      .attr("fill", "#fff")
-      .style("font-size", "10px")
-      .text((d) => d.name.slice(0, 6));
+    .append("text")
+    .attr("dy", 4)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#fff")
+    .style("font-size", "10px")
+    .text((d) => d.name.slice(0, 6));
 
   simulation.value.on("tick", () => {
     link
-        .attr("x1", (d) => d.source.x)
-        .attr("y1", (d) => d.source.y)
-        .attr("x2", (d) => d.target.x)
-        .attr("y2", (d) => d.target.y);
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
 
     node.attr("transform", (d) => `translate(${d.x},${d.y})`);
   });
@@ -358,9 +358,9 @@ const initGraph = () => {
 const resetZoom = () => {
   if (svg.value && zoomBehavior.value) {
     svg.value
-        .transition()
-        .duration(500)
-        .call(zoomBehavior.value.transform, d3.zoomIdentity);
+      .transition()
+      .duration(500)
+      .call(zoomBehavior.value.transform, d3.zoomIdentity);
   }
 };
 
@@ -371,21 +371,21 @@ const restartSimulation = () => {
 };
 
 watch(
-    () => props.data,
-    () => {
-      simulation.value?.stop();
-      initGraph();
-    },
-    {deep: true, immediate: true},
+  () => props.data,
+  () => {
+    simulation.value?.stop();
+    initGraph();
+  },
+  { deep: true, immediate: true },
 );
 
 watch(
-    activeRelations,
-    () => {
-      simulation.value?.stop();
-      initGraph();
-    },
-    {deep: true},
+  activeRelations,
+  () => {
+    simulation.value?.stop();
+    initGraph();
+  },
+  { deep: true },
 );
 
 onMounted(() => {
@@ -404,10 +404,11 @@ onBeforeUnmount(() => {
   height: 100vh;
   background: radial-gradient(circle at 30% 30%, #f1f5f9, #e2e8f0, #cbd5e1);
   overflow: hidden;
-  font-family: "Inter",
-  -apple-system,
-  BlinkMacSystemFont,
-  sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
 }
 
 .network-container::before {
@@ -430,8 +431,9 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.75);
   padding: 20px;
   border-radius: 18px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08),
-  inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
   display: flex;
   flex-direction: column;
   gap: 16px;

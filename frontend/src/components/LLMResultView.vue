@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type {llmResult} from "@/types/types.ts";
-import {indexParser} from "@/util/tools.ts";
-import {defineProps, type PropType} from "vue";
+import type { llmResult } from "@/types/types.ts";
+import { indexParser } from "@/util/tools.ts";
+import { defineProps, type PropType } from "vue";
 import ShareButton from "@/components/ShareButton.vue";
 
 const props = defineProps({
@@ -31,7 +31,7 @@ const link = () => {
         props.categories
       }}
       &nbsp;&nbsp;<button class="button" @click="link">原文</button>
-      <ShareButton :file_name="props.title"/>
+      <ShareButton :file_name="props.title" />
     </p>
 
     <div class="contentSummary_container shadow">
@@ -50,8 +50,8 @@ const link = () => {
     </div>
     <div class="specifics shadow">
       <template
-          v-for="(key, index) in props.llm_result!.specifics"
-          :key="index"
+        v-for="(key, index) in props.llm_result!.specifics"
+        :key="index"
       >
         <p v-if="key.length > 0">
           {{ index }}：<span>{{ key }}</span>
@@ -63,7 +63,7 @@ const link = () => {
         {{ props.llm_result!.opinion }}
       </p>
     </blockquote>
-    <p class="summarize" v-html="props.llm_result!.summarize"/>
+    <p class="summarize" v-html="props.llm_result!.summarize" />
   </div>
 </template>
 
@@ -72,9 +72,9 @@ const link = () => {
 
 :deep(summarize) {
   background: linear-gradient(
-      90deg,
-      rgba(102, 126, 234, 0.2) 0%,
-      rgba(118, 75, 162, 0.2) 100%
+    90deg,
+    rgba(102, 126, 234, 0.2) 0%,
+    rgba(118, 75, 162, 0.2) 100%
   );
   color: #5a4fcf;
   padding: 2px 6px;
@@ -185,8 +185,9 @@ const link = () => {
 .shadow {
   /* 关键：一层柔和的阴影 */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: transform 0.25s ease,
-  box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 /* 可选：鼠标悬停时再抬高一点，增强悬浮感 */

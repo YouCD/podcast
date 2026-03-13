@@ -2,27 +2,27 @@
   <main>
     <!-- 移动端遮罩层 -->
     <div
-        v-if="isMobile && isSidebarOpen"
-        class="sidebar-overlay"
-        @click="toggleSidebar(false)"
+      v-if="isMobile && isSidebarOpen"
+      class="sidebar-overlay"
+      @click="toggleSidebar(false)"
     ></div>
     <div>
       <McLayout
-          class="leftClass"
-          :class="{
+        class="leftClass"
+        :class="{
           'sidebar-hidden': isMobile && !isSidebarOpen,
           'sidebar-open': isMobile && isSidebarOpen,
         }"
       >
         <div class="sidebar-header">
-          <img src="/assets/favicon.png" alt="PodCast" width="40" height="40">
+          <img src="/assets/favicon.png" alt="PodCast" width="40" height="40" />
           <!-- 移动端关闭按钮 -->
           <button
-              v-if="isMobile"
-              class="sidebar-close-btn"
-              @click="toggleSidebar(false)"
+            v-if="isMobile"
+            class="sidebar-close-btn"
+            @click="toggleSidebar(false)"
           >
-            <span class="iconfont" style="font-size: 25px;">&#xe608;</span>
+            <span class="iconfont" style="font-size: 25px">&#xe608;</span>
           </button>
         </div>
         <!--        <hr style="color: #d9d9d9" />-->
@@ -30,7 +30,11 @@
           <!-- 今天 -->
           <div v-if="groupedSessions.today.length > 0" class="session-group">
             <div class="session-group-title">今天</div>
-            <div v-for="item in groupedSessions.today" :key="item.session_id"  v-memo="[item.session_id]">
+            <div
+              v-for="item in groupedSessions.today"
+              :key="item.session_id"
+              v-memo="[item.session_id]"
+            >
               <button class="custom-button" @click="fetchMsg(item.session_id)">
                 {{ item.title }}
               </button>
@@ -38,9 +42,15 @@
           </div>
 
           <!-- 7 天内 -->
-          <div v-if="groupedSessions.sevenDays.length > 0" class="session-group">
+          <div
+            v-if="groupedSessions.sevenDays.length > 0"
+            class="session-group"
+          >
             <div class="session-group-title">7 天内</div>
-            <div v-for="item in groupedSessions.sevenDays" :key="item.session_id">
+            <div
+              v-for="item in groupedSessions.sevenDays"
+              :key="item.session_id"
+            >
               <button class="custom-button" @click="fetchMsg(item.session_id)">
                 {{ item.title }}
               </button>
@@ -48,9 +58,15 @@
           </div>
 
           <!-- 30 天内 -->
-          <div v-if="groupedSessions.thirtyDays.length > 0" class="session-group">
+          <div
+            v-if="groupedSessions.thirtyDays.length > 0"
+            class="session-group"
+          >
             <div class="session-group-title">30 天内</div>
-            <div v-for="item in groupedSessions.thirtyDays" :key="item.session_id">
+            <div
+              v-for="item in groupedSessions.thirtyDays"
+              :key="item.session_id"
+            >
               <button class="custom-button" @click="fetchMsg(item.session_id)">
                 {{ item.title }}
               </button>
@@ -69,18 +85,22 @@
         </div>
       </McLayout>
       <McLayout
-          class="rightClass"
-          :class="{ 'full-width': isMobile && !isSidebarOpen }"
+        class="rightClass"
+        :class="{ 'full-width': isMobile && !isSidebarOpen }"
       >
-        <McHeader :title="'PodCast'" id="mc_header" :logoImg="'assets/favicon.png'">
+        <McHeader
+          :title="'PodCast'"
+          id="mc_header"
+          :logoImg="'assets/favicon.png'"
+        >
           <template #operationArea>
             <div class="operations">
               <!-- 移动端展开按钮 -->
               <button
-                  v-if="isMobile"
-                  class="sidebar-toggle-btn"
-                  @click="toggleSidebar(true)"
-                  title="展开会话列表"
+                v-if="isMobile"
+                class="sidebar-toggle-btn"
+                @click="toggleSidebar(true)"
+                title="展开会话列表"
               >
                 ☰
               </button>
@@ -89,8 +109,8 @@
         </McHeader>
 
         <McLayoutContent
-            v-if="startPage"
-            style="
+          v-if="startPage"
+          style="
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -99,96 +119,94 @@
           "
         >
           <McIntroduction
-              :logoImg="'assets/favicon.png'"
-              :title="'PodCast'"
-              :subTitle="'Hi，欢迎使用 PodCast'"
-              :description="description"
-              :logoWidth="64"
-              :logoHeight="64"
+            :logoImg="'assets/favicon.png'"
+            :title="'PodCast'"
+            :subTitle="'Hi，欢迎使用 PodCast'"
+            :description="description"
+            :logoWidth="64"
+            :logoHeight="64"
           ></McIntroduction>
         </McLayoutContent>
 
         <McLayoutContent class="content-container" ref="conversationRef" v-else>
-          <template v-if="sessionData" v-for="(msg, idx) in  sessionData.messages" :key="idx">
+          <template
+            v-if="sessionData"
+            v-for="(msg, idx) in sessionData.messages"
+            :key="idx"
+          >
             <McBubble
-                v-if="msg.role === 'user'"
-                :content="msg.content"
-                :align="'right'"
+              v-if="msg.role === 'user'"
+              :content="msg.content"
+              :align="'right'"
             >
-
             </McBubble>
-            <McBubble
-                v-else
-                :loading="msg.loading"
-            >
-
+            <McBubble v-else :loading="msg.loading">
               <!-- 计划卡片 -->
-              <PlanCard 
-                v-if="msg.plan && msg.plan.query" 
-                :plan="msg.plan" 
+              <PlanCard
+                v-if="msg.plan && msg.plan.query"
+                :plan="msg.plan"
                 :steps="msg.steps"
               />
-              
+
               <!-- 思考过程卡片 -->
               <ThinkCard
                 v-if="msg.think_content"
                 :content="msg.think_content"
                 :enableTyping="false"
               />
-              
+
               <!-- 原有的思考过程切换按钮（兼容旧数据） -->
-<!--              <div-->
-<!--                  v-if="msg.reasoning_content!=''"-->
-<!--                  class="think-toggle-btn"-->
-<!--                  @click="()=>{msg.showReasoningContent=!msg.showReasoningContent}"-->
-<!--              >-->
-<!--                <i class="icon-point"></i>-->
-<!--                <span>{{ msg.showReasoningContent ? '隐藏思考过程' : '显示思考过程' }}</span>-->
-<!--                <i :class="msg.showReasoningContent   ? 'icon-chevron-up' : 'icon-chevron-down'"></i>-->
-<!--              </div>-->
-<!--              <Typing v-if="msg.showReasoningContent && msg.reasoning_content!=''" :enableTyping="msg.reasoning_typing"-->
-<!--                      :msg="msg.reasoning_content"></Typing>-->
+              <!--              <div-->
+              <!--                  v-if="msg.reasoning_content!=''"-->
+              <!--                  class="think-toggle-btn"-->
+              <!--                  @click="()=>{msg.showReasoningContent=!msg.showReasoningContent}"-->
+              <!--              >-->
+              <!--                <i class="icon-point"></i>-->
+              <!--                <span>{{ msg.showReasoningContent ? '隐藏思考过程' : '显示思考过程' }}</span>-->
+              <!--                <i :class="msg.showReasoningContent   ? 'icon-chevron-up' : 'icon-chevron-down'"></i>-->
+              <!--              </div>-->
+              <!--              <Typing v-if="msg.showReasoningContent && msg.reasoning_content!=''" :enableTyping="msg.reasoning_typing"-->
+              <!--                      :msg="msg.reasoning_content"></Typing>-->
               <McMarkdownCard v-if="msg.content" :content="msg.content" />
             </McBubble>
           </template>
         </McLayoutContent>
 
         <div
-            class="shortcut"
-            style="display: flex; align-items: center; gap: 8px"
+          class="shortcut"
+          style="display: flex; align-items: center; gap: 8px"
         >
           <Button
-              style="margin-left: auto"
-              icon="add"
-              shape="circle"
-              title="新建对话"
-              size="md"
-              @click="newConversation"
+            style="margin-left: auto"
+            icon="add"
+            shape="circle"
+            title="新建对话"
+            size="md"
+            @click="newConversation"
           />
         </div>
 
         <McLayoutSender>
-          <McInput
-              :value="inputValue"
-              :maxLength="2000"
-              @submit="onSubmit"
-          >
+          <McInput :value="inputValue" :maxLength="2000" @submit="onSubmit">
             <template #extra>
               <div class="input-foot-wrapper">
                 <div class="input-foot-left">
                   <span class="input-foot-maxlength"
-                  >{{ inputValue.length }}/2000</span
+                    >{{ inputValue.length }}/2000</span
                   >
                 </div>
                 <div class="input-foot-right">
                   <Button
-                      style="padding:0 12px;"
-                      icon="op-clearup"
-                      shape="round"
-                      :disabled="!inputValue"
-                      @click="inputValue = ''"
+                    style="padding: 0 12px"
+                    icon="op-clearup"
+                    shape="round"
+                    :disabled="!inputValue"
+                    @click="inputValue = ''"
                   >
-                    <span :class="{'demo-button-content': inputValue.length > 0}">清空输入</span>
+                    <span
+                      :class="{ 'demo-button-content': inputValue.length > 0 }"
+                      >清空输入</span
+                    >
                   </Button>
                 </div>
               </div>
@@ -200,7 +218,7 @@
   </main>
 </template>
 <script lang="ts">
-import {defineComponent} from "vue";
+import { defineComponent } from "vue";
 import notificationService from "@/components/Notification/notificationService.ts";
 
 export default defineComponent({
@@ -217,8 +235,6 @@ export default defineComponent({
     next();
   },
 });
-
-
 </script>
 <script setup lang="ts">
 import "@devui-design/icons/icomoon/devui-icon.css";
@@ -233,16 +249,32 @@ import {
   McMarkdownCard,
 } from "@matechat/core";
 
-import {fetchEventSource} from "@microsoft/fetch-event-source";
-import {computed, nextTick, onBeforeMount, onMounted, onUnmounted, ref} from "vue";
-import {v4 as uuidv4} from "uuid";
-import {useUserStore} from "@/stores/user.ts";
-import type {sessionItem, messageInfo, msgRequest, PlanData, StepInfo, PlanCreatedEvent, StepStartEvent, StepResultEvent} from "@/types/types.ts";
-import {useChatRecordsStore} from "@/stores/chat.ts";
-import {storeToRefs} from "pinia";
-import {Button} from "vue-devui/button";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+import {
+  computed,
+  nextTick,
+  onBeforeMount,
+  onMounted,
+  onUnmounted,
+  ref,
+} from "vue";
+import { v4 as uuidv4 } from "uuid";
+import { useUserStore } from "@/stores/user.ts";
+import type {
+  sessionItem,
+  messageInfo,
+  msgRequest,
+  PlanData,
+  StepInfo,
+  PlanCreatedEvent,
+  StepStartEvent,
+  StepResultEvent,
+} from "@/types/types.ts";
+import { useChatRecordsStore } from "@/stores/chat.ts";
+import { storeToRefs } from "pinia";
+import { Button } from "vue-devui/button";
 import "vue-devui/button/style.css";
-import {changeTitleHandler} from "@/api/chat.ts";
+import { changeTitleHandler } from "@/api/chat.ts";
 import Typing from "@/components/Typing.vue";
 import PlanCard from "@/components/PlanCard.vue";
 import StepCard from "@/components/StepCard.vue";
@@ -250,7 +282,7 @@ import ThinkCard from "@/components/ThinkCard.vue";
 
 const currentUserId = ref<string>("9527");
 const userStore = useUserStore();
-const {tokenPayload,} = storeToRefs(userStore);
+const { tokenPayload } = storeToRefs(userStore);
 
 const chatRecordsStore = useChatRecordsStore();
 const {
@@ -268,7 +300,7 @@ const {
   setThinkContent,
   setThinkTyping,
 } = chatRecordsStore;
-const {sessionList, sessionData} = storeToRefs(chatRecordsStore);
+const { sessionList, sessionData } = storeToRefs(chatRecordsStore);
 
 // 按时间分组的会话列表
 const groupedSessions = computed(() => {
@@ -280,7 +312,7 @@ const groupedSessions = computed(() => {
     today: [] as sessionItem[],
     sevenDays: [] as sessionItem[],
     thirtyDays: [] as sessionItem[],
-    older: [] as sessionItem[]
+    older: [] as sessionItem[],
   };
 
   sessionList.value.forEach((item) => {
@@ -342,15 +374,14 @@ const toggleSidebar = (open?: boolean) => {
   // 控制body滚动
   if (newState && isMobile.value) {
     // 打开侧边栏时禁止背景滚动
-    document.body.style.overflow = 'hidden';
-    document.body.style.touchAction = 'none';
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
   } else {
     // 关闭侧边栏时恢复滚动
-    document.body.style.overflow = '';
-    document.body.style.touchAction = '';
+    document.body.style.overflow = "";
+    document.body.style.touchAction = "";
   }
 };
-
 
 onMounted(async () => {
   currentUserId.value = String(tokenPayload.value?.id || "9527");
@@ -371,7 +402,6 @@ const fetchMsg = async (sessionId: string) => {
   }
   await scrollToBottom();
 };
-
 
 const description = [
   "PodCast一个使用 Go 语言开发的 RSS 内容抓取与分析平台",
@@ -399,17 +429,23 @@ const onSubmit = async (evt: string) => {
   if (!evt) return;
   inputValue.value = "";
   // 创建会话
-  await newConversation()
+  await newConversation();
 
-  let uuidStr = uuidv4()
+  let uuidStr = uuidv4();
 
-  await setMsg(currentSession.value!.session_id, "user", uuidStr, evt)
+  await setMsg(currentSession.value!.session_id, "user", uuidStr, evt);
 
+  let u = uuidv4();
+  await setMsg(
+    currentSession.value!.session_id,
+    "assistant",
+    u,
+    undefined,
+    undefined,
+    true,
+  );
 
-  let u=uuidv4()
-  await setMsg(currentSession.value!.session_id, "assistant", u, undefined, undefined, true)
-
-  await getAIAnswer(evt,u);
+  await getAIAnswer(evt, u);
 };
 
 const scrollToBottom = async () => {
@@ -421,7 +457,7 @@ const scrollToBottom = async () => {
   scrollEl.scrollTop = scrollEl.scrollHeight;
 };
 
-const getAIAnswer = async (content: string,uuidStr :string) => {
+const getAIAnswer = async (content: string, uuidStr: string) => {
   await scrollToBottom();
   response.value = "";
   const ctrl = new AbortController();
@@ -430,9 +466,7 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
     content: content,
     session_id: currentSession.value!.session_id,
   };
-  thinkContent.value = ""
-
-
+  thinkContent.value = "";
 
   await fetchEventSource("/api/chat/stream", {
     method: "POST",
@@ -457,7 +491,7 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
           console.error("plan_created parse error", e);
         }
       }
-      
+
       // 处理 step_start 事件
       if (event.event === "step_start") {
         try {
@@ -467,32 +501,38 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
             description: data.description,
             reason: data.reason,
             tool_name: data.tool_name,
-            status: 'running',
+            status: "running",
           });
           scrollToBottom();
         } catch (e) {
           console.error("step_start parse error", e);
         }
       }
-      
+
       // 处理 step_result 事件
       if (event.event === "step_result") {
         try {
           const data = JSON.parse(event.data);
           console.log("step_result event:", data);
-          setStepResult(uuidStr, data.step_id, data.result, data.status, data.tool_args);
+          setStepResult(
+            uuidStr,
+            data.step_id,
+            data.result,
+            data.status,
+            data.tool_args,
+          );
           scrollToBottom();
         } catch (e) {
           console.error("step_result parse error", e);
         }
       }
-      
+
       // 处理 think 事件
       if (event.event === "think") {
         const data = JSON.parse(event.data);
         thinkContent.value += data.message;
         setThinkContent(uuidStr, data.message);
-        scrollToBottom();
+        // scrollToBottom();
       }
 
       // 处理 message 事件
@@ -500,7 +540,12 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
         try {
           const data = JSON.parse(event.data);
           if (data.message !== undefined) {
-            setMsg(currentSession.value!.session_id, "assistant", uuidStr, data.message)
+            setMsg(
+              currentSession.value!.session_id,
+              "assistant",
+              uuidStr,
+              data.message,
+            );
             response.value += data.message;
             if (data.data === '{"end":true}') {
               console.log("Ai END");
@@ -516,12 +561,19 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
     },
     onclose: async () => {
       console.log("SSE closed");
-      
+
       // 从 sessionData 中获取完整的消息数据
-      const message = sessionData.value?.messages.find((m) => m.uuid === uuidStr);
+      const message = sessionData.value?.messages.find(
+        (m) => m.uuid === uuidStr,
+      );
       console.log("onclose: message found?", !!message);
-      console.log("onclose: message.steps?", message?.steps ? JSON.stringify(message.steps).substring(0, 500) : 'undefined');
-      
+      console.log(
+        "onclose: message.steps?",
+        message?.steps
+          ? JSON.stringify(message.steps).substring(0, 500)
+          : "undefined",
+      );
+
       // 构建完整的消息数据发送给后端保存
       // 使用 any 类型因为需要将 plan 和 steps 序列化为字符串发送给后端
       const messageData: any = {
@@ -531,29 +583,36 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
         role: "assistant",
         uuid: uuidStr,
       };
-      
+
       // 如果有计划数据，序列化后发送
       if (message?.plan) {
         messageData.plan = JSON.stringify(message.plan);
       }
-      
+
       // 如果有步骤数据，序列化后发送
-      if (message?.steps && Array.isArray(message.steps) && message.steps.length > 0) {
+      if (
+        message?.steps &&
+        Array.isArray(message.steps) &&
+        message.steps.length > 0
+      ) {
         messageData.steps = JSON.stringify(message.steps);
-        console.log("onclose: sending steps to backend:", messageData.steps.substring(0, 500));
+        console.log(
+          "onclose: sending steps to backend:",
+          messageData.steps.substring(0, 500),
+        );
       }
-      
+
       // 如果有思考内容，发送
       if (message?.think_content) {
         messageData.think_content = message.think_content;
       }
-      
+
       await sendMessageAction(messageData);
-      SetReasoningTyping(uuidStr, false);
+      SetReasoningTyping(uuidStr);
       setThinkTyping(uuidStr, false);
 
       if (currentSession.value!.title == "新会话") {
-        await changeTitleHandlerAction()
+        await changeTitleHandlerAction();
         await fetchSessionList();
       }
     },
@@ -633,7 +692,7 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
 }
 
 .session-group-title::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -650,19 +709,19 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
 }
 
 .session-group:nth-child(1) .session-group-title::after {
-  content: '🌅'; /* 今天 */
+  content: "🌅"; /* 今天 */
 }
 
 .session-group:nth-child(2) .session-group-title::after {
-  content: '📅'; /* 7 天内 */
+  content: "📅"; /* 7 天内 */
 }
 
 .session-group:nth-child(3) .session-group-title::after {
-  content: '🗓️'; /* 30 天内 */
+  content: "🗓️"; /* 30 天内 */
 }
 
 .session-group:nth-child(4) .session-group-title::after {
-  content: '📁'; /* 更早 */
+  content: "📁"; /* 更早 */
 }
 
 .session-group .custom-button {
@@ -778,7 +837,6 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
     color: #333;
   }
 
-
   .sidebar-header {
     color: black;
   }
@@ -801,7 +859,6 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
   justify-content: space-between; /* 水平居中 */
   align-items: center; /* 垂直居中 */
 }
-
 
 .content-container {
   display: flex;

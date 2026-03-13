@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import {defineProps, ref} from "vue";
+import { defineProps, ref } from "vue";
 import html2canvas from "html2canvas";
 
 const props = defineProps({
@@ -24,7 +24,7 @@ async function shareScreen() {
     });
 
     const blob = await new Promise<Blob | null>((res) =>
-        canvas.toBlob(res, "image/png"),
+      canvas.toBlob(res, "image/png"),
     );
     if (!blob) throw new Error("canvas 转 blob 失败");
 
@@ -33,7 +33,7 @@ async function shareScreen() {
     });
 
     /* 判断当前环境是否支持“带文件的分享” */
-    if (navigator.canShare && navigator.canShare({files: [file]})) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         files: [file],
         title: "分享截图",

@@ -10,13 +10,13 @@
             </span>
             <span class="login-button" v-if="!isValidAuth">登录</span>
             <a class="login-button" v-if="isValidAuth">{{
-                tokenPayload?.name
-              }}</a>
+              tokenPayload?.name
+            }}</a>
           </div>
           <div
-              class="menu-item"
-              v-if="isValidAuth"
-              @click="handleMenuClick('ai')"
+            class="menu-item"
+            v-if="isValidAuth"
+            @click="handleMenuClick('ai')"
           >
             <span class="menu-icon">
               <span class="iconfont">&#xe69a;</span>
@@ -24,9 +24,9 @@
             <span>AI</span>
           </div>
           <div
-              class="menu-item"
-              v-if="isValidAuth"
-              @click="handleMenuClick('template')"
+            class="menu-item"
+            v-if="isValidAuth"
+            @click="handleMenuClick('template')"
           >
             <span class="menu-icon">
               <span class="iconfont">&#xe631;</span>
@@ -34,9 +34,9 @@
             <span>模板</span>
           </div>
           <div
-              class="menu-item"
-              v-if="isValidAuth"
-              @click="handleMenuClick('prompt')"
+            class="menu-item"
+            v-if="isValidAuth"
+            @click="handleMenuClick('prompt')"
           >
             <span class="menu-icon">
               <span class="iconfont">&#xe647;</span>
@@ -54,7 +54,7 @@
         </div>
       </div>
     </div>
-    <LoadingView2 v-if="showNodata"/>
+    <LoadingView2 v-if="showNodata" />
     <div class="center-container" v-if="!hasRss && !showNodata">暂无数据</div>
 
     <!-- 登录模态框 -->
@@ -68,21 +68,21 @@
           <div class="input-group">
             <label for="username">用户名</label>
             <input
-                id="username"
-                v-model="loginForm.name"
-                type="text"
-                placeholder="请输入用户名"
-                required
+              id="username"
+              v-model="loginForm.name"
+              type="text"
+              placeholder="请输入用户名"
+              required
             />
           </div>
           <div class="input-group">
             <label for="password">密码</label>
             <input
-                id="password"
-                v-model="loginForm.password"
-                type="password"
-                placeholder="请输入密码"
-                required
+              id="password"
+              v-model="loginForm.password"
+              type="password"
+              placeholder="请输入密码"
+              required
             />
           </div>
           <button type="submit" class="submit-button">登录</button>
@@ -90,8 +90,8 @@
       </div>
     </div>
     <template
-        v-for="[categoryName, posts] in Array.from(rssMap.entries())"
-        :key="categoryName"
+      v-for="[categoryName, posts] in Array.from(rssMap.entries())"
+      :key="categoryName"
     >
       <!-- 单个卡片 -->
       <MainView v-if="posts.length > 0">
@@ -100,13 +100,13 @@
         <!-- 玻璃列表 -->
         <ul class="glass-list">
           <li
-              v-for="p in posts"
-              :key="p.id"
-              @touchstart="onTouchStart(p, $event)"
-              @touchmove="onTouchMove($event)"
-              @touchend="onTouchEnd(p)"
-              @click="openLink(p)"
-              :style="
+            v-for="p in posts"
+            :key="p.id"
+            @touchstart="onTouchStart(p, $event)"
+            @touchmove="onTouchMove($event)"
+            @touchend="onTouchEnd(p)"
+            @click="openLink(p)"
+            :style="
               clickedItem === p.id
                 ? { background: 'rgba(255, 255, 255, 0.4)' }
                 : {}
@@ -121,26 +121,26 @@
     </template>
     <!-- 悬浮按钮 -->
     <div
-        class="floating_button"
-        style="top: 50%"
-        v-if="showFloatingButton"
-        @click="handleFloatingButtonClick('read_list')"
+      class="floating_button"
+      style="top: 50%"
+      v-if="showFloatingButton"
+      @click="handleFloatingButtonClick('read_list')"
     >
       已读
     </div>
     <div
-        class="floating_button"
-        style="top: calc(50% + 50px)"
-        v-if="showFloatingButton"
-        @click="handleFloatingButtonClick('llm_report')"
+      class="floating_button"
+      style="top: calc(50% + 50px)"
+      v-if="showFloatingButton"
+      @click="handleFloatingButtonClick('llm_report')"
     >
       报告
     </div>
     <div
-        class="floating_button"
-        style="top: calc(50% + 100px)"
-        v-if="showFloatingButton && !hasRss"
-        @click="handleFetchNotReadClick()"
+      class="floating_button"
+      style="top: calc(50% + 100px)"
+      v-if="showFloatingButton && !hasRss"
+      @click="handleFetchNotReadClick()"
     >
       未读
     </div>
@@ -161,24 +161,24 @@
 
 <script setup lang="ts">
 // 组件卸载时移除事件监听
-import {onErrorCaptured, onMounted, onUnmounted, ref} from "vue";
-import type {Rss, status} from "@/types/types.ts";
+import { onErrorCaptured, onMounted, onUnmounted, ref } from "vue";
+import type { Rss, status } from "@/types/types.ts";
 import router from "@/router";
-import {fetchRssStatus, sendTimeStay} from "@/api/rss";
+import { fetchRssStatus, sendTimeStay } from "@/api/rss";
 import LoadingView2 from "@/components/LoadingView2.vue";
 import notificationService from "@/components/Notification/notificationService.ts";
 import MainView from "@/components/MainView.vue";
-import {storeToRefs} from "pinia";
+import { storeToRefs } from "pinia";
 import useCategoryStore from "@/stores/rss.ts";
-import {userLogin} from "@/api/user.ts";
-import {useUserStore} from "@/stores/user.ts"; // 导入登录API
+import { userLogin } from "@/api/user.ts";
+import { useUserStore } from "@/stores/user.ts"; // 导入登录API
 
 const store = useCategoryStore();
 
-const {rssMap, hasRss} = storeToRefs(store);
+const { rssMap, hasRss } = storeToRefs(store);
 const userStore = useUserStore();
-const {isValidAuth, tokenPayload} = storeToRefs(userStore);
-const {setAuthToken} = userStore;
+const { isValidAuth, tokenPayload } = storeToRefs(userStore);
+const { setAuthToken } = userStore;
 
 // 添加登录相关的响应式变量
 const showLoginModal = ref(false);
@@ -236,7 +236,7 @@ const handleMenuClick = (action: string) => {
     case "logout":
       userStore.logout();
       router.push("/");
-      notificationService.success("已退出登录", {duration: 3000});
+      notificationService.success("已退出登录", { duration: 3000 });
       break;
   }
 };
@@ -247,10 +247,10 @@ const handleClickOutside = (event: MouseEvent) => {
   const buttonElement = document.querySelector(".menu-button");
 
   if (
-      menuElement &&
-      buttonElement &&
-      !menuElement.contains(event.target as Node) &&
-      !buttonElement.contains(event.target as Node)
+    menuElement &&
+    buttonElement &&
+    !menuElement.contains(event.target as Node) &&
+    !buttonElement.contains(event.target as Node)
   ) {
     showMenu.value = false;
   }
@@ -285,8 +285,8 @@ const openLink = (p: Rss) => {
   setTimeout(() => {
     router.push({
       name: "llm_html",
-      params: {id: p.id.toString()},
-      query: {md5: p.md5},
+      params: { id: p.id.toString() },
+      query: { md5: p.md5 },
     });
   }, 100);
 };
@@ -308,10 +308,10 @@ const handleLoginSubmit = async () => {
 
     if (tokenInfo.success && tokenInfo.token) {
       // 将token保存到本地存储
-      notificationService.success("登录成功", {duration: 3000});
+      notificationService.success("登录成功", { duration: 3000 });
       showLoginModal.value = false;
       // 清空表单
-      loginForm.value = {name: "", password: ""};
+      loginForm.value = { name: "", password: "" };
       setAuthToken(tokenInfo.token);
       console.log("tokenInfo:", tokenInfo);
       console.log("isValidAuth:", isValidAuth);
@@ -322,14 +322,14 @@ const handleLoginSubmit = async () => {
     }
   } catch (error) {
     console.error("登录错误:", error);
-    notificationService.error("登录失败，请重试", {duration: 3000});
+    notificationService.error("登录失败，请重试", { duration: 3000 });
   }
 };
 
 // 关闭登录模态框
 const closeLoginModal = () => {
   showLoginModal.value = false;
-  loginForm.value = {name: "", password: ""};
+  loginForm.value = { name: "", password: "" };
 };
 
 // 悬浮按钮点击处理函数
@@ -422,8 +422,8 @@ const deletePost = async (post: Rss) => {
   store.removeRssItem(post.categories, post.id);
 
   // 同时也要从已播放的播客集合中删除
-  notificationService.info("已添加到已读列表", {duration: 3000});
-  await sendTimeStay({md5: post.md5 as string, time_stay: 1});
+  notificationService.info("已添加到已读列表", { duration: 3000 });
+  await sendTimeStay({ md5: post.md5 as string, time_stay: 1 });
 };
 
 const handleFetchNotReadClick = async () => {
@@ -512,8 +512,9 @@ main {
   border-radius: 8px;
   color: #fff;
   cursor: pointer;
-  transition: background 0.25s,
-  transform 0.25s;
+  transition:
+    background 0.25s,
+    transform 0.25s;
 }
 
 .glass-list li:hover {
@@ -586,9 +587,9 @@ main {
 
 .menu-button:hover {
   background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.3) 0%,
-      rgba(255, 255, 255, 0.2) 100%
+    135deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.2) 100%
   );
   transform: scale(1.1);
 }
@@ -602,9 +603,9 @@ main {
   top: 100%;
   right: 0;
   background: linear-gradient(
-      135deg,
-      rgba(102, 126, 234, 0.95) 0%,
-      rgba(118, 75, 162, 0.95) 100%
+    135deg,
+    rgba(102, 126, 234, 0.95) 0%,
+    rgba(118, 75, 162, 0.95) 100%
   );
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -656,10 +657,10 @@ main {
 .menu-divider {
   height: 1px;
   background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.4),
-      transparent
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
   );
   margin: 4px 16px;
 }

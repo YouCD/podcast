@@ -10,19 +10,22 @@
       </div>
       <div class="plan-status">
         <span :class="['status-badge', isComplete ? 'completed' : 'running']">
-          {{ isComplete ? '已完成' : '执行中' }}
+          {{ isComplete ? "已完成" : "执行中" }}
         </span>
         <span class="steps-count">{{ stepsCount }} 个步骤</span>
         <i :class="['expand-icon', { collapsed: !expanded }]">▼</i>
       </div>
     </div>
-    
-    <div class="plan-steps" v-if="expanded && plan.steps && plan.steps.length > 0">
+
+    <div
+      class="plan-steps"
+      v-if="expanded && plan.steps && plan.steps.length > 0"
+    >
       <div class="steps-header">
         <span>执行步骤 ({{ plan.steps.length }})</span>
       </div>
-      <div 
-        v-for="(step, index) in plan.steps" 
+      <div
+        v-for="(step, index) in plan.steps"
         :key="step.id"
         :class="['step-item', `step-status-${getStepStatus(step.id)}`]"
       >
@@ -39,31 +42,40 @@
           </div>
           <div class="step-tool">
             <span class="tool-label">工具:</span>
-            <span class="tool-name">{{ step.tool_name }}</span>
-          </div>
-          <div class="step-tool">
+            <span class="tool-name" style="padding-right: 10px">{{
+              step.tool_name
+            }}</span>
             <span class="tool-label">参数:</span>
-            <span class="tool-name" ><pre>{{ JSON.parse(step.tool_args) }}</pre></span>
+            <span class="tool-name">{{ JSON.parse(step.tool_args) }}</span>
           </div>
 
           <div class="step-reason" v-if="step.reason">
             <span class="reason-label">原因:</span>
             <span class="reason-text">{{ step.reason }}</span>
           </div>
-          
+
           <!-- 执行结果 -->
           <div class="step-result-section" v-if="getStepResult(step.id)">
-            <div class="result-header" @click.stop="toggleResultExpand(step.id)">
+            <div
+              class="result-header"
+              @click.stop="toggleResultExpand(step.id)"
+            >
               <span class="result-icon">📊</span>
               <span class="result-title">执行结果</span>
-              <i :class="['result-expand-arrow', { expanded: isResultExpanded(step.id) }]">▶</i>
+              <i
+                :class="[
+                  'result-expand-arrow',
+                  { expanded: isResultExpanded(step.id) },
+                ]"
+                >▶</i
+              >
             </div>
             <div class="result-content" v-if="isResultExpanded(step.id)">
               <div class="result-text" v-if="isJsonResult(step.id)">
                 <pre>{{ formatResult(step.id) }}</pre>
               </div>
 
-              <div class="result-text" v-else>{{ getStepResult(step.id) }}  </div>
+              <div class="result-text" v-else>{{ getStepResult(step.id) }}</div>
             </div>
           </div>
         </div>
@@ -73,8 +85,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import type { PlanData, StepInfo } from '@/types/types';
+import { ref, computed, watch } from "vue";
+import type { PlanData, StepInfo } from "@/types/types";
 
 const props = defineProps<{
   plan: PlanData;
@@ -82,13 +94,17 @@ const props = defineProps<{
 }>();
 
 // 调试日志
-watch(() => props.steps, (newSteps) => {
-  console.log('PlanCard received steps:', newSteps);
-  if (newSteps && newSteps.length > 0) {
-    console.log('First step:', newSteps[0]);
-    console.log('First step result:', newSteps[0]?.result);
-  }
-}, { immediate: true });
+watch(
+  () => props.steps,
+  (newSteps) => {
+    console.log("PlanCard received steps:", newSteps);
+    if (newSteps && newSteps.length > 0) {
+      console.log("First step:", newSteps[0]);
+      console.log("First step result:", newSteps[0]?.result);
+    }
+  },
+  { immediate: true },
+);
 
 const expanded = ref(false);
 const expandedResults = ref<Set<number>>(new Set());
@@ -119,16 +135,18 @@ const isResultExpanded = (stepId: number) => {
 };
 
 // 获取步骤的执行状态
-const getStepStatus = (stepId: number): 'pending' | 'running' | 'completed' | 'failed' => {
-  if (!props.steps) return 'pending';
-  const stepInfo = props.steps.find(s => s.step_id === stepId);
-  return stepInfo?.status || 'pending';
+const getStepStatus = (
+  stepId: number,
+): "pending" | "running" | "completed" | "failed" => {
+  if (!props.steps) return "pending";
+  const stepInfo = props.steps.find((s) => s.step_id === stepId);
+  return stepInfo?.status || "pending";
 };
 
 // 获取步骤的执行结果
 const getStepResult = (stepId: number): string | undefined => {
   if (!props.steps) return undefined;
-  const stepInfo = props.steps.find(s => s.step_id === stepId);
+  const stepInfo = props.steps.find((s) => s.step_id === stepId);
   return stepInfo?.result;
 };
 
@@ -147,7 +165,7 @@ const isJsonResult = (stepId: number): boolean => {
 // 格式化 JSON 结果
 const formatResult = (stepId: number): string => {
   const result = getStepResult(stepId);
-  if (!result) return '';
+  if (!result) return "";
   try {
     return JSON.stringify(JSON.parse(result), null, 2);
   } catch {
@@ -157,10 +175,10 @@ const formatResult = (stepId: number): string => {
 
 const getStatusText = (status: string) => {
   const statusMap: Record<string, string> = {
-    pending: '待执行',
-    running: '执行中',
-    completed: '已完成',
-    failed: '失败'
+    pending: "待执行",
+    running: "执行中",
+    completed: "已完成",
+    failed: "失败",
   };
   return statusMap[status] || status;
 };
@@ -455,7 +473,7 @@ const getStatusText = (status: string) => {
   margin: 0;
   font-size: 11px;
   color: #abb2bf;
-  font-family: 'Fira Code', 'Consolas', monospace;
+  font-family: "Fira Code", "Consolas", monospace;
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -467,7 +485,8 @@ const getStatusText = (status: string) => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
   }
   50% {

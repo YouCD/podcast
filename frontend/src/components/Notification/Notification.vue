@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {defineEmits, defineProps, onMounted, onUnmounted, ref} from "vue";
+import { defineEmits, defineProps, onMounted, onUnmounted, ref } from "vue";
 
 interface Props {
   type?: "success" | "error" | "warning" | "info";
@@ -74,14 +74,14 @@ onUnmounted(() => {
     <div v-if="isVisible" class="notification" :class="getColorClass()">
       <div class="notification__content">
         <span v-if="showIcon" class="notification__icon">{{
-            getIconByType()
-          }}</span>
+          getIconByType()
+        }}</span>
         <span class="notification__message">{{ message }}</span>
       </div>
       <button
-          v-if="closable"
-          class="notification__close"
-          @click="closeNotification"
+        v-if="closable"
+        class="notification__close"
+        @click="closeNotification"
       >
         ×
       </button>

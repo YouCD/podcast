@@ -38,7 +38,7 @@ button {
 /* 移动设备下的样式 */
 @media screen and (max-width: 768px) {
   .custom-button {
-   color: black;
+    color: black;
   }
 }
 

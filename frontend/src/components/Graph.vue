@@ -9,19 +9,25 @@
           </div>
         </div>
       </div>
-      <VChart ref="chartRef" :style="props.style" :option="option"/>
+      <VChart ref="chartRef" :style="props.style" :option="option" />
     </div>
   </main>
 </template>
 
 <script lang="ts" setup>
-import {use} from "echarts/core";
-import {CanvasRenderer} from "echarts/renderers";
-import {GraphChart} from "echarts/charts";
-import {LegendComponent, ThumbnailComponent} from "echarts/components";
+import { use } from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import { GraphChart } from "echarts/charts";
+import { LegendComponent, ThumbnailComponent } from "echarts/components";
 import VChart from "vue-echarts";
-import {type CSSProperties, nextTick, onBeforeUnmount, onMounted, ref,} from "vue"; // CSSProperties 可从 vue 直接导入
-import type {DgraphResponse} from "@/types/types.ts";
+import {
+  type CSSProperties,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+} from "vue"; // CSSProperties 可从 vue 直接导入
+import type { DgraphResponse } from "@/types/types.ts";
 
 use([ThumbnailComponent, LegendComponent, GraphChart, CanvasRenderer]);
 
@@ -45,7 +51,7 @@ const isFullscreen = ref(false);
 // 计算 thumbnail 配置
 function getThumbnail() {
   return props.showThumbnail
-      ? {
+    ? {
         width: "15%",
         height: "15%",
         windowStyle: {
@@ -54,7 +60,7 @@ function getThumbnail() {
           opacity: 1,
         },
       }
-      : false;
+    : false;
 }
 
 const option = ref({
@@ -153,10 +159,10 @@ async function toggleFullscreen() {
 //  监听全屏切换
 function handleFullscreenChange() {
   const isCurrentlyFullscreen = !!(
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
+    document.fullscreenElement ||
+    (document as any).webkitFullscreenElement ||
+    (document as any).mozFullScreenElement ||
+    (document as any).msFullscreenElement
   );
 
   isFullscreen.value = isCurrentlyFullscreen;
@@ -180,32 +186,32 @@ function updateChart() {
   // 通过 ECharts 实例直接 setOption
   if (chartRef.value?.chart) {
     chartRef.value.chart.setOption(
-        {
-          legend: {
-            data: typeList,
-          },
-          series: [
-            {
-              data: props.dgraphResponse.nodes.map((node) => ({
-                id: node.id,
-                name: node.name,
-                category: typeSet.indexOf(node["dgraph.type"]),
-              })),
-              // 👇 处理 edges 数据，确保包含 name
-              edges: props.dgraphResponse.edges.map((edge) => ({
-                source: edge.source,
-                target: edge.target,
-                value: edge.value,
-              })),
-
-              categories: typeList.map((type) => ({
-                name: type,
-              })),
-            },
-          ],
-          thumbnail: getThumbnail(),
+      {
+        legend: {
+          data: typeList,
         },
-        {replaceMerge: ["thumbnail"]},
+        series: [
+          {
+            data: props.dgraphResponse.nodes.map((node) => ({
+              id: node.id,
+              name: node.name,
+              category: typeSet.indexOf(node["dgraph.type"]),
+            })),
+            // 👇 处理 edges 数据，确保包含 name
+            edges: props.dgraphResponse.edges.map((edge) => ({
+              source: edge.source,
+              target: edge.target,
+              value: edge.value,
+            })),
+
+            categories: typeList.map((type) => ({
+              name: type,
+            })),
+          },
+        ],
+        thumbnail: getThumbnail(),
+      },
+      { replaceMerge: ["thumbnail"] },
     );
   }
 }
@@ -238,8 +244,9 @@ onBeforeUnmount(() => {
 .shadow {
   /* 关键：一层柔和的阴影 */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: transform 0.25s ease,
-  box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 /* 可选：鼠标悬停时再抬高一点，增强悬浮感 */

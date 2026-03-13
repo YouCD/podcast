@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import {useRoute} from "vue-router";
-import {computed, createVNode, nextTick, onBeforeMount, onMounted, onUnmounted, ref, render, watch,} from "vue";
-import {fetchLlmHtml, sendTimeStay} from "@/api/rss.ts";
-import type {llmResult, NextLlmHtml} from "@/types/types.ts";
+import { useRoute } from "vue-router";
+import {
+  computed,
+  createVNode,
+  nextTick,
+  onBeforeMount,
+  onMounted,
+  onUnmounted,
+  ref,
+  render,
+  watch,
+} from "vue";
+import { fetchLlmHtml, sendTimeStay } from "@/api/rss.ts";
+import type { llmResult, NextLlmHtml } from "@/types/types.ts";
 import moment from "moment";
 import router from "@/router";
 import useCategoryStore from "@/stores/rss.ts";
@@ -71,8 +81,8 @@ const doLoadPrevious = async () => {
   try {
     // 获取上一条的前一条
     const previousData = await fetchLlmHtml(
-        rss.value.previous.id,
-        store.notRead,
+      rss.value.previous.id,
+      store.notRead,
     );
     if (previousData) {
       rss.value = {
@@ -80,7 +90,7 @@ const doLoadPrevious = async () => {
         next: rss.value.current,
         previous: previousData.previous,
       };
-      window.scrollTo({top: 0, behavior: "instant"});
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   } catch (e) {
     console.error("加载上一条失败:", e);
@@ -103,7 +113,7 @@ const doLoadNext = async () => {
         next: nextData.next,
         previous: rss.value.current,
       };
-      window.scrollTo({top: 0, behavior: "instant"});
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   } catch (e) {
     console.error("加载下一条失败:", e);
@@ -154,8 +164,8 @@ const insertGraphComponent = () => {
 
       // 插入到 container-box 后面
       containerBox.parentNode?.insertBefore(
-          graphContainer,
-          containerBox.nextSibling,
+        graphContainer,
+        containerBox.nextSibling,
       );
       if (!rss.value.current.dgraph) {
         return;
@@ -178,15 +188,15 @@ const insertGraphComponent = () => {
 
 /* 监听 rss 数据变化，动态插入 Graph 组件 */
 watch(
-    () => rss.value?.current?.llm_html,
-    () => {
-      if (rss.value?.current?.llm_html) {
-        // 使用 setTimeout 确保 DOM 已经更新
-        setTimeout(() => {
-          insertGraphComponent();
-        }, 100);
-      }
-    },
+  () => rss.value?.current?.llm_html,
+  () => {
+    if (rss.value?.current?.llm_html) {
+      // 使用 setTimeout 确保 DOM 已经更新
+      setTimeout(() => {
+        insertGraphComponent();
+      }, 100);
+    }
+  },
 );
 
 /* ---------- 上滑加载逻辑（必须持续触摸 3s）---------- */
@@ -220,7 +230,7 @@ const doLoadNextSwipe = async () => {
         previous: rss.value.current,
       };
     }
-    window.scrollTo({top: 0, behavior: "instant"});
+    window.scrollTo({ top: 0, behavior: "instant" });
   } catch (e) {
     console.error("加载下一条失败:", e);
   } finally {
@@ -289,8 +299,8 @@ const onTouchEnd = () => {
 
 /* 生命周期 */
 onMounted(() => {
-  document.addEventListener("touchstart", onTouchStart, {passive: true});
-  document.addEventListener("touchmove", onTouchMove, {passive: true});
+  document.addEventListener("touchstart", onTouchStart, { passive: true });
+  document.addEventListener("touchmove", onTouchMove, { passive: true });
   document.addEventListener("touchend", onTouchEnd);
   document.addEventListener("touchcancel", onTouchEnd);
   window.addEventListener("keydown", handleKeyDown);
@@ -330,12 +340,12 @@ onBeforeMount(async () => {
     <div>
       <!-- 悬浮按钮 -->
       <div class="floating_button" style="top: 60%">
-        <ShareButton :file_name="rss?.current.title"/>
+        <ShareButton :file_name="rss?.current.title" />
       </div>
       <div
-          class="web-con"
-          v-if="rss && rss.current"
-          v-html="rss.current.llm_html"
+        class="web-con"
+        v-if="rss && rss.current"
+        v-html="rss.current.llm_html"
       ></div>
     </div>
   </Transition>
@@ -343,18 +353,18 @@ onBeforeMount(async () => {
   <!-- PC端导航按钮 -->
   <div class="navigation-buttons" :style="{ top: isPC ? '50%' : '56%' }">
     <button
-        v-if="showPreviousButton"
-        class="nav-button"
-        @click="doLoadPrevious"
-        title="上一条 (↑)"
+      v-if="showPreviousButton"
+      class="nav-button"
+      @click="doLoadPrevious"
+      title="上一条 (↑)"
     >
       <span class="iconfont">&#xe63c;</span>
     </button>
     <button
-        v-if="showNextButton"
-        class="nav-button"
-        @click="doLoadNext"
-        title="下一条 (↓)"
+      v-if="showNextButton"
+      class="nav-button"
+      @click="doLoadNext"
+      title="下一条 (↓)"
     >
       <span class="iconfont">&#xe63d;</span>
     </button>

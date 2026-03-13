@@ -20,7 +20,7 @@ import notificationService from "../components/Notification/notificationService"
       </button>
 
       <button
-          @click="
+        @click="
           () =>
             notificationService.success('这条消息不会自动关闭', { duration: 0 })
         "
@@ -29,7 +29,7 @@ import notificationService from "../components/Notification/notificationService"
       </button>
 
       <button
-          @click="
+        @click="
           () =>
             notificationService.info('这条消息会很快消失', { duration: 1000 })
         "

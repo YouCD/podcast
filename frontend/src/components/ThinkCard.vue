@@ -12,7 +12,7 @@
         <i :class="['toggle-arrow', { expanded }]">▶</i>
       </div>
     </div>
-    
+
     <div class="think-content" v-if="expanded">
       <Typing :enableTyping="enableTyping" :msg="content"></Typing>
     </div>
@@ -20,8 +20,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import Typing from './Typing.vue';
+import { ref, computed } from "vue";
+import Typing from "./Typing.vue";
 
 const props = defineProps<{
   content: string;
@@ -35,9 +35,9 @@ const toggleExpand = () => {
 };
 
 const previewText = computed(() => {
-  if (!props.content) return '';
-  const text = props.content.replace(/\n/g, ' ');
-  return text.length > 50 ? text.substring(0, 50) + '...' : text;
+  if (!props.content) return "";
+  const text = props.content.replace(/\n/g, " ");
+  return text.length > 50 ? text.substring(0, 50) + "..." : text;
 });
 </script>
 

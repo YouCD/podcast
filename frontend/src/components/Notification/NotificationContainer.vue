@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref} from "vue";
+import { ref } from "vue";
 import Notification from "./Notification.vue";
 
 export interface NotificationOptions {
@@ -34,7 +34,7 @@ const addNotification = (options: NotificationOptions) => {
 
 const removeNotification = (id: string) => {
   const index = notifications.value.findIndex(
-      (notification) => notification.id === id,
+    (notification) => notification.id === id,
   );
   if (index !== -1) {
     notifications.value.splice(index, 1);
@@ -43,8 +43,8 @@ const removeNotification = (id: string) => {
 
 // 提供一些快捷方法
 const success = (
-    message: string,
-    options?: Omit<NotificationOptions, "message" | "type">,
+  message: string,
+  options?: Omit<NotificationOptions, "message" | "type">,
 ) => {
   addNotification({
     type: "success",
@@ -54,8 +54,8 @@ const success = (
 };
 
 const error = (
-    message: string,
-    options?: Omit<NotificationOptions, "message" | "type">,
+  message: string,
+  options?: Omit<NotificationOptions, "message" | "type">,
 ) => {
   addNotification({
     type: "error",
@@ -65,8 +65,8 @@ const error = (
 };
 
 const warning = (
-    message: string,
-    options?: Omit<NotificationOptions, "message" | "type">,
+  message: string,
+  options?: Omit<NotificationOptions, "message" | "type">,
 ) => {
   addNotification({
     type: "warning",
@@ -76,8 +76,8 @@ const warning = (
 };
 
 const info = (
-    message: string,
-    options?: Omit<NotificationOptions, "message" | "type">,
+  message: string,
+  options?: Omit<NotificationOptions, "message" | "type">,
 ) => {
   addNotification({
     type: "info",
@@ -100,14 +100,14 @@ defineExpose({
   <div class="notification-container">
     <TransitionGroup name="list" tag="div">
       <Notification
-          v-for="notification in notifications"
-          :key="notification.id"
-          :type="notification.type"
-          :message="notification.message"
-          :duration="notification.duration"
-          :closable="notification.closable"
-          :show-icon="notification.showIcon"
-          @close="removeNotification(notification.id)"
+        v-for="notification in notifications"
+        :key="notification.id"
+        :type="notification.type"
+        :message="notification.message"
+        :duration="notification.duration"
+        :closable="notification.closable"
+        :show-icon="notification.showIcon"
+        @close="removeNotification(notification.id)"
       />
     </TransitionGroup>
   </div>

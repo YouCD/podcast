@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
-import {useTemplateStore} from "@/stores/template";
-import type {CreateTemplateRequest, UpdateTemplateRequest,} from "@/types/types";
+import { onMounted, ref } from "vue";
+import { useTemplateStore } from "@/stores/template";
+import type {
+  CreateTemplateRequest,
+  UpdateTemplateRequest,
+} from "@/types/types";
 import notificationService from "@/components/Notification/notificationService";
-import {getTruncatedData} from "@/util/tools.ts";
+import { getTruncatedData } from "@/util/tools.ts";
 
 // 使用store
 const templateStore = useTemplateStore();
@@ -74,8 +77,8 @@ const handleUpdate = async () => {
   };
 
   const result = await templateStore.updateExistingTemplate(
-      editingId.value,
-      requestData,
+    editingId.value,
+    requestData,
   );
   if (result) {
     notificationService.success("Template更新成功");
@@ -139,8 +142,8 @@ onMounted(() => {
 });
 </script>
 <script lang="ts">
-import {defineComponent} from "vue";
-import {useUserStore} from "@/stores/user.ts";
+import { defineComponent } from "vue";
+import { useUserStore } from "@/stores/user.ts";
 
 export default defineComponent({
   async beforeRouteEnter(to, from, next) {
@@ -163,9 +166,9 @@ export default defineComponent({
     <div class="header">
       <h1>HTML模板管理</h1>
       <button
-          class="button primary"
-          @click="showCreateForm = true"
-          :disabled="templateStore.loading"
+        class="button primary"
+        @click="showCreateForm = true"
+        :disabled="templateStore.loading"
       >
         {{ templateStore.loading ? "加载中..." : "新建Template" }}
       </button>
@@ -187,22 +190,22 @@ export default defineComponent({
       </div>
 
       <div
-          v-for="template in templateStore.templates"
-          :key="template.id"
-          class="template-item"
+        v-for="template in templateStore.templates"
+        :key="template.id"
+        class="template-item"
       >
         <div class="template-header">
           <h3>{{ template.key_name }}</h3>
           <div class="template-actions">
             <button
-                class="button secondary small"
-                @click="handleEdit(template)"
+              class="button secondary small"
+              @click="handleEdit(template)"
             >
               编辑
             </button>
             <button
-                class="button danger small"
-                @click="handleDelete(template.id)"
+              class="button danger small"
+              @click="handleDelete(template.id)"
             >
               删除
             </button>
@@ -211,14 +214,14 @@ export default defineComponent({
         <div class="template-content">
           <div class="content-display" @click="toggleExpand(template.id)">
             <highlightjs
-                v-if="isExpanded(template.id)"
-                language="xml"
-                :code="template.data"
+              v-if="isExpanded(template.id)"
+              language="xml"
+              :code="template.data"
             />
             <highlightjs
-                v-else
-                language="xml"
-                :code="getTruncatedData(template.data)"
+              v-else
+              language="xml"
+              :code="getTruncatedData(template.data)"
             />
             <div class="expand-indicator">
               {{ isExpanded(template.id) ? "收起 ↑" : "展开 ↓" }}
@@ -243,19 +246,19 @@ export default defineComponent({
           <div class="form-group">
             <label>Key Name:</label>
             <input
-                v-model="formData.key_name"
-                type="text"
-                placeholder="请输入Key Name"
-                class="form-input"
+              v-model="formData.key_name"
+              type="text"
+              placeholder="请输入Key Name"
+              class="form-input"
             />
           </div>
           <div class="form-group">
             <label>HTML模板内容:</label>
             <textarea
-                v-model="formData.data"
-                placeholder="请输入HTML模板内容"
-                class="form-textarea"
-                rows="15"
+              v-model="formData.data"
+              placeholder="请输入HTML模板内容"
+              class="form-textarea"
+              rows="15"
             ></textarea>
           </div>
         </div>
@@ -277,19 +280,19 @@ export default defineComponent({
           <div class="form-group">
             <label>Key Name:</label>
             <input
-                v-model="formData.key_name"
-                type="text"
-                placeholder="请输入Key Name"
-                class="form-input"
+              v-model="formData.key_name"
+              type="text"
+              placeholder="请输入Key Name"
+              class="form-input"
             />
           </div>
           <div class="form-group">
             <label>HTML模板内容:</label>
             <textarea
-                v-model="formData.data"
-                placeholder="请输入HTML模板内容"
-                class="form-textarea"
-                rows="15"
+              v-model="formData.data"
+              placeholder="请输入HTML模板内容"
+              class="form-textarea"
+              rows="15"
             ></textarea>
           </div>
         </div>

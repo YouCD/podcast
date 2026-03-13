@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import {onMounted, onUnmounted, ref, watch} from 'vue';
-import markdownit from 'markdown-it';
+import { onMounted, onUnmounted, ref, watch } from "vue";
+import markdownit from "markdown-it";
 
-const mdt = markdownit({breaks: true, linkify: true, html: true});
+const mdt = markdownit({ breaks: true, linkify: true, html: true });
 const props = defineProps({
   msg: {
     type: String,
-    default: ""
+    default: "",
   },
   // 是否启用打字机效果
   enableTyping: {
     type: Boolean,
-    default: false
-  }
-})
+    default: false,
+  },
+});
 
-const displayText = ref('');
+const displayText = ref("");
 const isTyping = ref(false);
 let typingTimer: ReturnType<typeof setTimeout> | null = null;
-let lastMsg = ''; // 记录上一次的消息内容
+let lastMsg = ""; // 记录上一次的消息内容
 
 // 清除打字机定时器
 const clearTypingTimer = () => {
@@ -32,10 +32,10 @@ const clearTypingTimer = () => {
 const typeText = (text: string) => {
   // 清除之前的定时器
   clearTypingTimer();
-  
+
   if (!text) {
-    displayText.value = '';
-    lastMsg = '';
+    displayText.value = "";
+    lastMsg = "";
     return;
   }
 
@@ -49,15 +49,15 @@ const typeText = (text: string) => {
 
   // 检查是否是追加内容（新内容以旧内容开头）
   const isAppend = text.startsWith(lastMsg) && lastMsg.length > 0;
-  
+
   // 如果是追加内容，从当前位置继续打字
   let startIndex = isAppend ? displayText.value.length : 0;
-  
+
   // 如果不是追加（内容完全不同），重置显示
   if (!isAppend) {
-    displayText.value = '';
+    displayText.value = "";
   }
-  
+
   isTyping.value = true;
   const speed = 5; // 每个字符的间隔时间 (ms)
 
@@ -77,23 +77,27 @@ const typeText = (text: string) => {
 };
 
 // 监听 props.msg 和 props.enableTyping 变化
-watch(() => [props.msg, props.enableTyping] as const, ([newMsg, newEnableTyping]) => {
-  // 过滤掉 undefined 和 null 值，避免打印undefined
-  if (newMsg === undefined || newMsg === null) {
-    return;
-  }
+watch(
+  () => [props.msg, props.enableTyping] as const,
+  ([newMsg, newEnableTyping]) => {
+    // 过滤掉 undefined 和 null 值，避免打印undefined
+    if (newMsg === undefined || newMsg === null) {
+      return;
+    }
 
-  // 如果 enableTyping 从 true 变为 false，立即显示全部内容并停止打字机效果
-  if (!newEnableTyping && isTyping.value) {
-    clearTypingTimer();
-    displayText.value = newMsg;
-    isTyping.value = false;
-    lastMsg = newMsg;
-    return;
-  }
+    // 如果 enableTyping 从 true 变为 false，立即显示全部内容并停止打字机效果
+    if (!newEnableTyping && isTyping.value) {
+      clearTypingTimer();
+      displayText.value = newMsg;
+      isTyping.value = false;
+      lastMsg = newMsg;
+      return;
+    }
 
-  typeText(newMsg);
-}, {immediate: true});
+    typeText(newMsg);
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (props.msg) {
@@ -104,16 +108,14 @@ onMounted(() => {
 onUnmounted(() => {
   clearTypingTimer();
 });
-
 </script>
 
 <template>
   <div
-      v-html="mdt.render(displayText)"
-      style="background: #eeeeee;padding: 12px 16px;border-radius: 12px"
-      :class="{ typing: isTyping }"
-  >
-  </div>
+    v-html="mdt.render(displayText)"
+    style="background: #eeeeee; padding: 12px 16px; border-radius: 12px"
+    :class="{ typing: isTyping }"
+  ></div>
 </template>
 
 <style scoped>
@@ -123,7 +125,8 @@ onUnmounted(() => {
 }
 
 @keyframes blink {
-  0%, 100% {
+  0%,
+  100% {
     border-color: transparent;
   }
   50% {

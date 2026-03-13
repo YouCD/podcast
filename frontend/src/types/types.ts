@@ -76,7 +76,6 @@ export interface TokenPayload {
   exp: number;
 }
 
-
 export interface messageInfo {
   role: string;
   content: string;
@@ -180,12 +179,12 @@ export interface msgRequest {
   session_id: string;
   role: string;
   content?: string;
-  uuid:string;
-  typing?:boolean|undefined;
+  uuid: string;
+  typing?: boolean | undefined;
   reasoning_content: string;
-  showReasoningContent?: boolean|undefined;
-  reasoning_typing?: boolean|undefined;
-  loading?: boolean|undefined;
+  showReasoningContent?: boolean | undefined;
+  reasoning_typing?: boolean | undefined;
+  loading?: boolean | undefined;
   // 新增：计划相关（前端渲染时为对象）
   plan?: PlanData;
   // 新增：步骤列表（前端渲染时为对象数组）
@@ -195,7 +194,7 @@ export interface msgRequest {
   // 思考内容是否启用打字机效果（SSE 流式时为 true）
   think_typing?: boolean;
   // 消息类型标识
-  message_type?: 'normal' | 'plan' | 'step';
+  message_type?: "normal" | "plan" | "step";
 }
 
 // 用于发送给后端的消息类型（plan 和 steps 为 JSON 字符串）
@@ -211,7 +210,7 @@ export interface msgRequestForBackend {
   plan?: string;
   steps?: string;
   think_content?: string;
-  message_type?: 'normal' | 'plan' | 'step';
+  message_type?: "normal" | "plan" | "step";
 }
 // 后端返回的原始消息类型（plan 和 steps 为 JSON 字符串）
 export interface RawMessage {
@@ -226,7 +225,7 @@ export interface RawMessage {
   plan?: string;
   steps?: string;
   think_content?: string;
-  message_type?: 'normal' | 'plan' | 'step';
+  message_type?: "normal" | "plan" | "step";
 }
 
 export interface sessionResponse {
@@ -243,7 +242,7 @@ export interface PlanStep {
   tool_name: string;
   tool_args: string;
   reason: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: "pending" | "running" | "completed" | "failed";
   // result?: string;
 }
 
@@ -262,7 +261,7 @@ export interface StepInfo {
   reason: string;
   tool_name: string;
   tool_args?: Record<string, any>;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: "pending" | "running" | "completed" | "failed";
   result?: string;
   expanded?: boolean; // 是否展开结果
 }
@@ -282,7 +281,7 @@ export interface StepStartEvent {
 export interface StepResultEvent {
   step_id: number;
   result: string;
-  status: 'completed' | 'failed';
+  status: "completed" | "failed";
   tool_args?: Record<string, any>;
 }
 

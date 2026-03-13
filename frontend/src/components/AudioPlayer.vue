@@ -1,13 +1,13 @@
 <template>
   <div class="audio-player">
     <audio
-        ref="audioRef"
-        :src="audioData?.src"
-        @ended="onEnded"
-        @loadedmetadata="onLoadedMetadata"
-        @timeupdate="onTimeUpdate"
-        @play="onPlay"
-        @pause="onPause"
+      ref="audioRef"
+      :src="audioData?.src"
+      @ended="onEnded"
+      @loadedmetadata="onLoadedMetadata"
+      @timeupdate="onTimeUpdate"
+      @play="onPlay"
+      @pause="onPause"
     ></audio>
 
     <div class="close-button" @click="onClose">×</div>
@@ -32,16 +32,16 @@
       <div class="progress-container" @click="onProgressClick">
         <div class="progress-bar">
           <div
-              class="progress-loaded"
-              :style="{ width: loadedProgress + '%' }"
+            class="progress-loaded"
+            :style="{ width: loadedProgress + '%' }"
           ></div>
           <div
-              class="progress-played"
-              :style="{ width: playedProgress + '%' }"
+            class="progress-played"
+            :style="{ width: playedProgress + '%' }"
           ></div>
           <div
-              class="progress-handle"
-              :style="{ left: playedProgress + '%' }"
+            class="progress-handle"
+            :style="{ left: playedProgress + '%' }"
           ></div>
         </div>
       </div>
@@ -69,20 +69,20 @@
       </button>
 
       <input
-          type="range"
-          class="volume-slider"
-          min="0"
-          max="1"
-          step="0.01"
-          :value="volume"
-          @input="onVolumeChange"
+        type="range"
+        class="volume-slider"
+        min="0"
+        max="1"
+        step="0.01"
+        :value="volume"
+        @input="onVolumeChange"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import {onBeforeUnmount, onMounted, ref, watch} from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 // 定义音频数据接口
 interface AudioData {
@@ -216,7 +216,7 @@ const updateLoadProgress = () => {
     const buffered = audioRef.value.buffered;
     if (buffered.length > 0) {
       loadedProgress.value =
-          (buffered.end(buffered.length - 1) / duration.value) * 100;
+        (buffered.end(buffered.length - 1) / duration.value) * 100;
     }
   }
 };
@@ -234,16 +234,16 @@ const onClose = () => {
 
 // 监听音频源变化
 watch(
-    () => props.audioData?.src,
-    (newSrc) => {
-      if (audioRef.value && newSrc) {
-        audioRef.value.src = newSrc;
-        // 重置状态
-        currentTime.value = 0;
-        playedProgress.value = 0;
-        isPlaying.value = false;
-      }
-    },
+  () => props.audioData?.src,
+  (newSrc) => {
+    if (audioRef.value && newSrc) {
+      audioRef.value.src = newSrc;
+      // 重置状态
+      currentTime.value = 0;
+      playedProgress.value = 0;
+      isPlaying.value = false;
+    }
+  },
 );
 
 // 定时更新加载进度

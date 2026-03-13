@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
-import type {Rss} from "@/types/types.ts";
-import {fetchRead24hRss} from "@/api/rss.ts";
+import { onMounted, ref } from "vue";
+import type { Rss } from "@/types/types.ts";
+import { fetchRead24hRss } from "@/api/rss.ts";
 import router from "@/router";
 import MainView from "@/components/MainView.vue";
 import LoadingView2 from "@/components/LoadingView2.vue";
@@ -28,15 +28,15 @@ const fetchCategoryPostsLocal = async () => {
 const openLink = (p: Rss) => {
   router.push({
     name: "llm_html",
-    params: {id: p.id.toString()},
-    query: {md5: p.md5},
+    params: { id: p.id.toString() },
+    query: { md5: p.md5 },
   });
 };
 </script>
 
 <template>
   <main>
-    <LoadingView2 v-if="showNodata"/>
+    <LoadingView2 v-if="showNodata" />
 
     <MainView v-if="!showNodata">
       <ul class="glass-list">
@@ -110,8 +110,9 @@ main {
   border-radius: 8px;
   color: #fff;
   cursor: pointer;
-  transition: background 0.25s,
-  transform 0.25s;
+  transition:
+    background 0.25s,
+    transform 0.25s;
 }
 
 .glass-list li:hover {
