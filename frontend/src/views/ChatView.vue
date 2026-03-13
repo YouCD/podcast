@@ -253,31 +253,19 @@ import { fetchEventSource } from "@microsoft/fetch-event-source";
 import {
   computed,
   nextTick,
-  onBeforeMount,
   onMounted,
-  onUnmounted,
   ref,
 } from "vue";
 import { v4 as uuidv4 } from "uuid";
 import { useUserStore } from "@/stores/user.ts";
 import type {
   sessionItem,
-  messageInfo,
-  msgRequest,
-  PlanData,
-  StepInfo,
-  PlanCreatedEvent,
-  StepStartEvent,
-  StepResultEvent,
 } from "@/types/types.ts";
 import { useChatRecordsStore } from "@/stores/chat.ts";
 import { storeToRefs } from "pinia";
 import { Button } from "vue-devui/button";
 import "vue-devui/button/style.css";
-import { changeTitleHandler } from "@/api/chat.ts";
-import Typing from "@/components/Typing.vue";
 import PlanCard from "@/components/PlanCard.vue";
-import StepCard from "@/components/StepCard.vue";
 import ThinkCard from "@/components/ThinkCard.vue";
 
 const currentUserId = ref<string>("9527");
