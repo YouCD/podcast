@@ -192,6 +192,8 @@ export interface msgRequest {
   steps?: StepInfo[];
   // 新增：思考内容（流式）
   think_content?: string;
+  // 思考内容是否启用打字机效果（SSE 流式时为 true）
+  think_typing?: boolean;
   // 消息类型标识
   message_type?: 'normal' | 'plan' | 'step';
 }

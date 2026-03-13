@@ -85,7 +85,7 @@ watch(() => props.steps, (newSteps) => {
   }
 }, { immediate: true });
 
-const expanded = ref(true);
+const expanded = ref(false);
 const expandedResults = ref<Set<number>>(new Set());
 
 const isComplete = computed(() => props.plan?.is_complete ?? false);

@@ -21,13 +21,14 @@ export interface ParsedMessage {
     uuid: string;
     reasoning_content: string;
     showReasoningContent?: boolean;
-    reasoning_typing?: boolean;
-    typing?: boolean;
+
+
     loading?: boolean;
     // 解析后为对象
     plan?: PlanData;
     steps?: StepInfo[];
     think_content?: string;
+    think_typing?: boolean;
     message_type?: 'normal' | 'plan' | 'step';
 }
 
@@ -169,7 +170,6 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
         if (state.value.sessionData) state.value.sessionData.messages.forEach((message) => {
             if (message.uuid === uuid) {
                 console.log("toggleReasoningContent", message.showReasoningContent)
-                message.reasoning_typing = show;
             }
         })
     }
@@ -239,6 +239,17 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
                     message.think_content = '';
                 }
                 message.think_content += content;
+                message.think_typing = true; // SSE 流式数据时启用打字机效果
+            }
+        }
+    };
+    
+    // 新增：设置思考内容打字机状态
+    const setThinkTyping = (uuid: string, typing: boolean) => {
+        if (state.value.sessionData) {
+            const message = state.value.sessionData.messages.find((m) => m.uuid === uuid);
+            if (message) {
+                message.think_typing = typing;
             }
         }
     };
@@ -296,12 +307,10 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
                 if (message.uuid === uuid) {
                     message.loading=false
                     if (reasoning_content) {
-                        message.reasoning_typing = true;
                         message.reasoning_content += reasoning_content;
                         message.showReasoningContent = true
                     }
                     if (msg) {
-                        message.typing = true;
                         message.content += msg;
                     }
                 }
@@ -395,7 +404,7 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
         }
     };
 
-    // 保存消息 todo 删除sessionId参数
+    // 保存消息
     const sendMessageAction = async (messageData: msgRequest) => {
         try {
             setLoading(true);
@@ -447,6 +456,7 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
         setStep,
         setStepResult,
         setThinkContent,
+        setThinkTyping,
         toggleStepExpand,
     };
 });

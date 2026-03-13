@@ -38,8 +38,8 @@ func Search24HRss(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallTo
 	for _, post := range posts {
 		buffer.WriteString(fmt.Sprintf(`标题：%s
 内容：%s
-
-`, post.Title, post.Content))
+link：%s
+`, post.Title, post.Content, post.Link))
 	}
 	log.WithCtx(ctx).Debugw("Search24HRss", "内容", buffer.String())
 	return mcp.NewToolResultText(buffer.String()), nil

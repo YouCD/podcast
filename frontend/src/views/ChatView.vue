@@ -130,9 +130,9 @@
               />
               
               <!-- 思考过程卡片 -->
-              <ThinkCard 
-                v-if="msg.think_content" 
-                :content="msg.think_content" 
+              <ThinkCard
+                v-if="msg.think_content"
+                :content="msg.think_content"
                 :enableTyping="false"
               />
               
@@ -146,9 +146,9 @@
 <!--                <span>{{ msg.showReasoningContent ? '隐藏思考过程' : '显示思考过程' }}</span>-->
 <!--                <i :class="msg.showReasoningContent   ? 'icon-chevron-up' : 'icon-chevron-down'"></i>-->
 <!--              </div>-->
-              <Typing v-if="msg.showReasoningContent && msg.reasoning_content!=''" :enableTyping="msg.reasoning_typing"
-                      :msg="msg.reasoning_content"></Typing>
-              <McMarkdownCard v-if="msg.content" :content="msg.content" :typing="msg.typing"/>
+<!--              <Typing v-if="msg.showReasoningContent && msg.reasoning_content!=''" :enableTyping="msg.reasoning_typing"-->
+<!--                      :msg="msg.reasoning_content"></Typing>-->
+              <McMarkdownCard v-if="msg.content" :content="msg.content" />
             </McBubble>
           </template>
         </McLayoutContent>
@@ -266,6 +266,7 @@ const {
   setStep,
   setStepResult,
   setThinkContent,
+  setThinkTyping,
 } = chatRecordsStore;
 const {sessionList, sessionData} = storeToRefs(chatRecordsStore);
 
@@ -548,7 +549,8 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
       }
       
       await sendMessageAction(messageData);
-      SetReasoningTyping(uuidStr, false)
+      SetReasoningTyping(uuidStr, false);
+      setThinkTyping(uuidStr, false);
 
       if (currentSession.value!.title == "新会话") {
         await changeTitleHandlerAction()
