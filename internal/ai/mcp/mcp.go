@@ -3,9 +3,10 @@ package mcp
 import (
 	"context"
 	"net/http"
-	"podcast/pkg/types"
 	"strings"
 	"time"
+
+	"podcast/pkg/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/client"
@@ -53,7 +54,7 @@ func (s *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
 	s.RegisterTool(search24HRss, Search24HRss).
 		RegisterTool(rssCategories, RssCategories).
 		RegisterTool(getCurrentTime, GetCurrentTime)
-	//s.RegisterTool(ragSearch, RagSearch)
+	// s.RegisterTool(ragSearch, RagSearch)
 	ctx := context.Background()
 	proxy := InitMcpProxy(ctx, mcpProxyConfig)
 
@@ -79,6 +80,7 @@ func (s *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
 		}
 	}
 }
+
 func handler(client *client.Client, name string) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		req := request
@@ -95,6 +97,7 @@ func handler(client *client.Client, name string) server.ToolHandlerFunc {
 		return tool, nil
 	}
 }
+
 func (s *MCPServer) RegisterTool(tool mcp.Tool, handler server.ToolHandlerFunc) *MCPServer {
 	s.AddTool(tool, handler)
 	return s

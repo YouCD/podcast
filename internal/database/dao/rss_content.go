@@ -3,8 +3,9 @@ package dao
 import (
 	"context"
 	"fmt"
-	"podcast/internal/database/models"
 	"time"
+
+	"podcast/internal/database/models"
 
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -143,6 +144,7 @@ const twentyFourHours = 24 * time.Hour
 func getTime24HAgo() time.Time {
 	return time.Now().Add(-twentyFourHours)
 }
+
 func (dao *rssContentDao) FindRead24H(ctx context.Context) ([]*models.RssContent, error) {
 	time24H := getTime24HAgo()
 	var posts []*models.RssContent
@@ -178,6 +180,7 @@ func (dao *rssContentDao) Create(ctx context.Context, post *models.RssContent) e
 	}
 	return nil
 }
+
 func (dao *rssContentDao) BatchCreate(ctx context.Context, posts ...*models.RssContent) error {
 	if len(posts) == 0 {
 		return nil
@@ -295,6 +298,7 @@ func (dao *rssContentDao) FindByDateRange(ctx context.Context, startDate, endDat
 	err := dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("date >= ? AND date <= ? AND categories!=? ", startDate, endDate, "low_quality").Find(&posts).Error
 	return posts, err
 }
+
 func (dao *rssContentDao) FindByDateRangeCategories(ctx context.Context, startDate, endDate time.Time, category string) ([]*models.RssContent, error) {
 	var posts []*models.RssContent
 	err := dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("date >= ? AND date <= ? AND categories!=? AND categories=?", startDate, endDate, "low_quality", category).Find(&posts).Error

@@ -3,9 +3,10 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"podcast/internal/ai/common"
 	"podcast/pkg/types"
-	"sync"
 
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/youcd/toolkit/log"

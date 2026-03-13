@@ -14,6 +14,7 @@ type LLMInfo struct {
 func (m *LLMInfo) GetModelName() string {
 	return m.Model
 }
+
 func (m *LLMInfo) GetBaseURL() string {
 	parse, _ := url.Parse(m.BaseURL)
 	return parse.Host

@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 
@@ -14,7 +15,7 @@ import (
 func newCategorizationTemplate(ctx context.Context) prompt.ChatTemplate {
 	// 使用的内容变量
 	usePrompt := PromptLLMCategorization
-	var keyInfoDao = dao.NewKeyInfoDao(models.GetDb())
+	keyInfoDao := dao.NewKeyInfoDao(models.GetDb())
 	p, _ := keyInfoDao.FindByKeynameAndGenre(ctx, "categorization", 1)
 	if p != nil {
 		if p.Data != "" {
@@ -34,7 +35,7 @@ func newCategorizationTemplate(ctx context.Context) prompt.ChatTemplate {
 // 创建Rss内容分析模板
 func newRssAnalyzeTemplate(ctx context.Context, categories string) prompt.ChatTemplate {
 	usePrompt := PromptLLMResult
-	var keyInfoDao = dao.NewKeyInfoDao(models.GetDb())
+	keyInfoDao := dao.NewKeyInfoDao(models.GetDb())
 	// 从prompt_dao获取分类为"llm_result"的提示词
 	p, _ := keyInfoDao.FindByKeynameAndGenre(ctx, categories, 1)
 	if p != nil {

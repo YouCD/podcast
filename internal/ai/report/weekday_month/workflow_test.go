@@ -2,9 +2,10 @@ package weekday_month
 
 import (
 	"context"
+	"testing"
+
 	"podcast/config"
 	"podcast/internal/database/models"
-	"testing"
 
 	"github.com/youcd/toolkit/log"
 )
@@ -21,6 +22,7 @@ func init() {
 	//	log.Errorf("警告: Redis初始化失败: %v", err)
 	//}
 }
+
 func TestNew(t *testing.T) {
 	c, err := New(context.Background())
 	if err != nil {

@@ -1,7 +1,6 @@
 package template
 
-var (
-	defaultTmpl = `
+var defaultTmpl = `
 <style>
     summarize {
         background: linear-gradient(90deg,
@@ -178,4 +177,3 @@ var (
 	{{- end }}
 </div>
 `
-)

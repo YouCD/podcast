@@ -18,7 +18,7 @@ func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig) 
 	log.WithCtx(ctx).Info("开始保存到数据库")
 	var milvusData []*models.RssContent
 	var dbData []*models.RssContent
-	var rssContentDao = dao.NewRssContentDao(models.GetDb())
+	rssContentDao := dao.NewRssContentDao(models.GetDb())
 	for _, item := range rssItems {
 		// 检查是否已存在相同MD5的内容
 		existingPost, err := rssContentDao.FindByMD5(ctx, item.MD5)

@@ -3,8 +3,9 @@ package milvus
 import (
 	"context"
 	"fmt"
-	"podcast/pkg/types"
 	"time"
+
+	"podcast/pkg/types"
 
 	"github.com/milvus-io/milvus/client/v2/entity"
 	"github.com/milvus-io/milvus/client/v2/index"

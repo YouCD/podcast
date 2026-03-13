@@ -4,9 +4,10 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"podcast/pkg/types"
 	"sync"
 	"time"
+
+	"podcast/pkg/types"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
@@ -86,6 +87,7 @@ func crawlAndParseRSS(ctx context.Context, rss *types.RSSSource) ([]*types.RSSIt
 
 	return items, nil
 }
+
 func CleanHTML(input string) string {
 	p := bluemonday.StrictPolicy()
 	return p.Sanitize(input)

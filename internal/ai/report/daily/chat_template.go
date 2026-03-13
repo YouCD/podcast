@@ -12,6 +12,7 @@ func newGenMarkdownSummaryTemplate() prompt.ChatTemplate {
 {content}`),
 	)
 }
+
 func newGenHtmlSummaryTemplate() prompt.ChatTemplate {
 	return prompt.FromMessages(schema.GoTemplate,
 		schema.SystemMessage(PromptMarkdown2Html),
@@ -19,6 +20,7 @@ func newGenHtmlSummaryTemplate() prompt.ChatTemplate {
 {{.content}}`),
 	)
 }
+
 func newGenPodcastSummaryTemplate() prompt.ChatTemplate {
 	return prompt.FromMessages(schema.FString,
 		schema.SystemMessage(PromptMarkdown2Podcast),

@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"podcast/internal/ai/llm"
-	"podcast/pkg"
-	"podcast/pkg/types"
 	"strings"
 	"sync"
 	"time"
+
+	"podcast/internal/ai/llm"
+	"podcast/pkg"
+	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/components/model/qwen"
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
@@ -52,6 +53,7 @@ func isRetryableRateLimit(err error) bool {
 		strings.Contains(s, "limit reached") ||
 		strings.Contains(s, "requests per") // dashscope 常见
 }
+
 func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time.Duration, responseFormat openai.ChatCompletionResponseFormatType) (*retryChatModel, error) {
 	if maxRetry < 0 {
 		maxRetry = 0
@@ -82,6 +84,7 @@ func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time
 
 	return m, nil
 }
+
 func (r *retryChatModel) Release(ctx context.Context) {
 	if r.llmInfo != nil {
 		r.llmPool.Put(ctx, r.llmInfo)
@@ -165,7 +168,6 @@ func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts 
 // 同步方法重试更简单，直接循环调用 base.Generate 即可
 
 func (r *retryChatModel) Generate(ctx context.Context, in []*schema.Message, opts ...model.Option) (*schema.Message, error) {
-
 	var lastErr error
 	for attempt := 0; attempt <= r.maxRetry; attempt++ {
 		msg, err := r.base.Generate(ctx, in, opts...)
@@ -195,6 +197,7 @@ func (r *retryChatModel) Generate(ctx context.Context, in []*schema.Message, opt
 func (r *retryChatModel) BindTools(tools []*schema.ToolInfo) error {
 	return r.base.BindTools(tools)
 }
+
 func (r *retryChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
 	// 先调用 base 的 WithTools，得到新的 cli
 	newBase, err := r.base.WithTools(tools)
@@ -212,6 +215,7 @@ func (r *retryChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingC
 		llmPool:  r.llmPool,
 	}, nil
 }
+
 func (r *retryChatModel) GetType() string {
 	// 很多地方用这个来判断组件类型
 	return r.base.GetType() // 或直接 r.base.GetType()
@@ -224,6 +228,7 @@ func (r *retryChatModel) GetModelName() string {
 	}
 	return "unknown-retry"
 }
+
 func (r *retryChatModel) newModel(ctx context.Context) (*qwen.ChatModel, error) {
 	llmPool := llm.GetLLMPool()
 	llmInfo, err := llmPool.Get(ctx)

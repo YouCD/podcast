@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"os"
+	"sync"
+
 	"podcast/config"
 	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
-	"sync"
 
 	"github.com/youcd/toolkit/log"
 )

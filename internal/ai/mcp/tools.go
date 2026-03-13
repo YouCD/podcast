@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
+	"time"
+
 	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
-	"strings"
-	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/youcd/toolkit/log"
@@ -22,7 +23,7 @@ var (
 	)
 	rssCategories  = mcp.NewTool("news_categories", mcp.WithDescription("功能：获取新闻类别"))
 	getCurrentTime = mcp.NewTool("get_current_time", mcp.WithDescription(`功能：获取当前时间, 格式为: "2025-11-22 15:04:05"`))
-	//ragSearch      = mcp.NewTool("rag_search", mcp.WithDescription(`功能：从向量数据库中检索相关信息，支持语义搜索`),
+	// ragSearch      = mcp.NewTool("rag_search", mcp.WithDescription(`功能：从向量数据库中检索相关信息，支持语义搜索`),
 	//	mcp.WithString("query", mcp.Description("用户的问题")))
 )
 

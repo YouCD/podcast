@@ -3,6 +3,7 @@ package weekday_month
 import (
 	"context"
 	"fmt"
+
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
@@ -46,6 +47,7 @@ func buildWeekdayMonthWorkflow() *compose.Graph[string, *graphState] {
 
 	return graph
 }
+
 func New(ctx context.Context) (compose.Runnable[string, *graphState], error) {
 	// 构建工作流
 	workflow := buildWeekdayMonthWorkflow()

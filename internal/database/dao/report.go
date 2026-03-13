@@ -3,8 +3,9 @@ package dao
 import (
 	"context"
 	"fmt"
-	"podcast/internal/database/models"
 	"time"
+
+	"podcast/internal/database/models"
 
 	"gorm.io/gorm"
 )
@@ -81,6 +82,7 @@ func (r *reportDao) GetReportByID(ctx context.Context, id int) (*models.Report, 
 	}
 	return &report, nil
 }
+
 func (r *reportDao) GetRepoByQuestion(ctx context.Context, question string) (*models.Report, error) {
 	var report *models.Report
 	err := r.db.Model(&models.Report{}).WithContext(ctx).Where("question = ?", question).Scan(&report).Error

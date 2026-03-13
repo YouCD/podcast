@@ -2,8 +2,9 @@ package weekday_month
 
 import (
 	"context"
-	"podcast/internal/ai/common"
 	"strings"
+
+	"podcast/internal/ai/common"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/prompt"

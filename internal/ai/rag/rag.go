@@ -2,8 +2,9 @@ package rag
 
 import (
 	"context"
-	"podcast/internal/ai/embedding"
 	"strings"
+
+	"podcast/internal/ai/embedding"
 
 	"podcast/internal/database/models"
 	"podcast/pkg"

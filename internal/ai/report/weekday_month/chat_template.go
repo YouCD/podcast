@@ -23,6 +23,7 @@ func newGenQueryReWritingTemplate(ctx context.Context) prompt.ChatTemplate {
 用户提问: {{.userQuery}}`),
 	)
 }
+
 func newAnalysisTemplate(ctx context.Context, queryStr string) prompt.ChatTemplate {
 	usePrompt := PromptReportAnalysis
 

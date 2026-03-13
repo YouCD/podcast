@@ -3,9 +3,10 @@ package routes
 import (
 	"embed"
 	"net/http"
+	"strings"
+
 	"podcast/internal/ai/agent"
 	"podcast/pkg/types"
-	"strings"
 
 	"podcast/internal/ai/mcp"
 	"podcast/internal/app"

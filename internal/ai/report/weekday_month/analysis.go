@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"podcast/internal/ai/common"
-	"podcast/pkg/types"
 	"strings"
 	"time"
+
+	"podcast/internal/ai/common"
+	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/youcd/toolkit/log"

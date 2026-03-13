@@ -3,9 +3,10 @@ package daily
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
-	"time"
 
 	"github.com/cloudwego/eino/compose"
 	"github.com/youcd/toolkit/log"
@@ -71,6 +72,7 @@ func buildDailyWorkflow(cfg *types.Podcast) *compose.Graph[int, *graphState] {
 
 	return graph
 }
+
 func New(ctx context.Context, cfg *types.Podcast) (compose.Runnable[int, *graphState], error) {
 	// 构建工作流
 	workflow := buildDailyWorkflow(cfg)

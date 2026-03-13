@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	"strconv"
+
 	"podcast/internal/database/models"
 	"podcast/internal/service"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/youcd/toolkit/log"
@@ -152,7 +153,6 @@ func (k *KeyInfoHandler) GetKeyInfosByGenre(c *gin.Context) {
 func (k *KeyInfoHandler) GetKeyInfoByKeynameAndGenre(c *gin.Context) {
 	keyname := c.Param("keyname")
 	genre, err := strconv.Atoi(c.Param("genre"))
-
 	if err != nil {
 		ErrorWithMessage(c, "无效的Genre")
 		return

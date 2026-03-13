@@ -236,6 +236,7 @@ func parseScript(rawText string, speakerMap map[string]string) []PodcastRound {
 
 	return dialogues
 }
+
 func PodCast(ctx context.Context, appid, accessToken, output, data string) error {
 	speakerMapping := map[string]string{
 		"S2": "zh_male_dayixiansheng_v2_saturn_bigtts",  // 男声

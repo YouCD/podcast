@@ -3,9 +3,10 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"podcast/config"
 	"testing"
 	"time"
+
+	"podcast/config"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,7 @@ func init() {
 	}
 	log.WithCtx(context.Background()).Infof("%#v", c)
 }
+
 func TestMcpProxy_Reconnect(t *testing.T) {
 	// 创建一个带取消功能的上下文
 	ctx, cancel := context.WithCancel(context.Background())

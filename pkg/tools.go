@@ -3,8 +3,9 @@ package pkg
 import (
 	"context"
 	"fmt"
-	"podcast/pkg/types"
 	"time"
+
+	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/components/model/qwen"
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
@@ -21,8 +22,9 @@ func WithRetry(fn func() error, maxRetries int) error {
 	}
 	return err
 }
+
 func NewChatModel(ctx context.Context, llmInfo *types.LLMInfo, responseFormat openai.ChatCompletionResponseFormatType) (*qwen.ChatModel, error) {
-	//t := float32(0.3)
+	// t := float32(0.3)
 	cfg := &qwen.ChatModelConfig{
 		APIKey:  llmInfo.ApiKey,
 		BaseURL: llmInfo.BaseURL,
@@ -30,11 +32,10 @@ func NewChatModel(ctx context.Context, llmInfo *types.LLMInfo, responseFormat op
 		ResponseFormat: &openai.ChatCompletionResponseFormat{
 			Type: responseFormat,
 		},
-		//Temperature: &t,
+		// Temperature: &t,
 	}
 
 	chatModel, err := qwen.NewChatModel(ctx, cfg)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chat model: %w", err)
 	}

@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"podcast/pkg/types"
 	"syscall"
 	"time"
+
+	"podcast/pkg/types"
 
 	"podcast/config"
 	"podcast/internal/app"

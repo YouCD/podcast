@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+
 	"podcast/config"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
@@ -90,6 +91,5 @@ var setCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		log.WithCtx(cmd.Context()).Infof("账户已创建成功: %s", user)
-
 	},
 }

@@ -3,10 +3,11 @@ package daily
 import (
 	"context"
 	"fmt"
-	"podcast/internal/database/dao"
-	"podcast/internal/database/models"
 	"strings"
 	"time"
+
+	"podcast/internal/database/dao"
+	"podcast/internal/database/models"
 
 	"github.com/youcd/toolkit/log"
 )
@@ -36,7 +37,7 @@ func createReport(ctx context.Context, reportID int) (*graphState, error) {
 }
 
 func getExistingReport(ctx context.Context, id int) (*models.Report, time.Time, time.Time, string, error) {
-	var reportDao = dao.NewReportDao(models.GetDb())
+	reportDao := dao.NewReportDao(models.GetDb())
 
 	if id == 0 {
 		var startDate, endDate time.Time
@@ -67,5 +68,4 @@ func getExistingReport(ctx context.Context, id int) (*models.Report, time.Time, 
 		endTime = startTime.AddDate(0, 0, 1).Add(-time.Second)
 	}
 	return report, startTime, endTime, report.Question, nil
-
 }

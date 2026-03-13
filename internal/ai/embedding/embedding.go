@@ -3,6 +3,7 @@ package embedding
 import (
 	"context"
 	"fmt"
+
 	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/components/embedding/dashscope"
@@ -32,7 +33,7 @@ func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 		model:    cfg.Model,
 		Embedder: embedder,
 	}, nil
-	//return embedder, nil
+	// return embedder, nil
 }
 
 // CreateEmbeddings 创建嵌入向量

@@ -3,10 +3,11 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"text/template"
+
 	"podcast/internal/ai/report/daily"
 	"podcast/internal/service"
 	"podcast/pkg/types"
-	"text/template"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"

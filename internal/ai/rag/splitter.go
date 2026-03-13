@@ -26,6 +26,7 @@ func NewMarkdownSplitter(ctx context.Context) (document.Transformer, error) {
 	}
 	return splitter, nil
 }
+
 func NewSemanticSplitter(ctx context.Context, embedder *dashscope.Embedder) (document.Transformer, error) {
 	// 初始化分割器
 	splitter, err := semantic.NewSplitter(ctx, &semantic.Config{
@@ -35,13 +36,13 @@ func NewSemanticSplitter(ctx context.Context, embedder *dashscope.Embedder) (doc
 		Separators:   []string{"\n", ".", "?", "!"},
 		Percentile:   0.9,
 	})
-
 	if err != nil {
 		log.WithCtx(ctx).Errorf("NewSemanticSplitter err: %v", err)
 		return nil, err
 	}
 	return splitter, nil
 }
+
 func NewRecursiveSplitter(ctx context.Context) (document.Transformer, error) {
 	// 初始化分割器
 	splitter, err := recursive.NewSplitter(ctx, &recursive.Config{

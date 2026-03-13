@@ -5,18 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"text/template"
+
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
-	"strings"
-	"text/template"
 
 	"github.com/youcd/toolkit/log"
 )
 
-var (
-	h *HTMLTemplateManager
-)
+var h *HTMLTemplateManager
 
 type HTMLTemplateManager struct {
 	ContentLen int

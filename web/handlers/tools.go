@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"podcast/internal/database/models"
 	"strings"
+
+	"podcast/internal/database/models"
 )
 
 var waitHtml = `<!DOCTYPE html>

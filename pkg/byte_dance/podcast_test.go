@@ -2,12 +2,13 @@ package byte_dance
 
 import (
 	"context"
-	"podcast/config"
 	"testing"
+
+	"podcast/config"
 )
 
 func TestParseScript(t *testing.T) {
-	var a = `[S1] 老王老王老王！紧急呼叫！
+	a := `[S1] 老王老王老王！紧急呼叫！
 [S2] 嚯，这什么动静，我刚泡的咖啡差点洒我芯片上。
 [S1] 别提芯片了！我正刷手机呢，就感觉这世界…怎么说呢，一边是疯了一样的涨价，一边是神仙打架，还有一边眼看着要炸了！
 [S2] 你这个描述…精准中带着点抽象。来来来，坐下慢慢喷，是不是苹果又提价了？

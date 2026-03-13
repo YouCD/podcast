@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+
 	"podcast/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -65,7 +66,6 @@ func JwtMiddleware(userService *service.UserService) gin.HandlerFunc {
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			return []byte(userService.Token()), nil
 		})
-
 		if err != nil {
 			if err == jwt.ErrSignatureInvalid {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "无效的token签名"})

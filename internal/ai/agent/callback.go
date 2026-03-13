@@ -58,7 +58,7 @@ func (a *AgentCallback) OnStartWithStreamInput(ctx context.Context, info *callba
 }
 
 func (a *AgentCallback) OnEndWithStreamOutput(ctx context.Context, info *callbacks.RunInfo, output *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
-	var graphInfoName = "PlanExecuteAgent" // 更新为新的 Agent 名称
+	graphInfoName := "PlanExecuteAgent" // 更新为新的 Agent 名称
 
 	go func() {
 		defer func() {

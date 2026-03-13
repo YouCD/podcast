@@ -300,12 +300,14 @@ func New(host string) (*Dgraph, error) {
 
 	return d, nil
 }
+
 func (d *Dgraph) Init(ctx context.Context) error {
 	if err := d.client.SetSchema(ctx, schema); err != nil {
 		return fmt.Errorf("failed to set initial schema: %w", err)
 	}
 	return nil
 }
+
 func (d *Dgraph) Close() {
 	d.client.Close()
 }

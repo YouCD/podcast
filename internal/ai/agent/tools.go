@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
+
 	"podcast/internal/ai/embedding"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
-	"regexp"
-	"strings"
 
 	"podcast/internal/ai/rag"
 	"podcast/pkg/dgraph"
