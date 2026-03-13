@@ -504,10 +504,10 @@ const getAIAnswer = async (content: string,uuidStr :string) => {
             response.value += data.message;
             if (data.data === '{"end":true}') {
               console.log("Ai END");
-              scrollToBottom();
+              // scrollToBottom();
               return;
             }
-            scrollToBottom();
+            // scrollToBottom();
           }
         } catch (e) {
           console.error("SSE parse error", e);

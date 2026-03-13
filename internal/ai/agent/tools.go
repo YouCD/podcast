@@ -156,29 +156,29 @@ func (t *DGraphQueryTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 
 	return &schema.ToolInfo{
 		Name:        "dgraph_query",
-		Desc:        "查询实体关系、知识图谱、关联路径。适用于查询'谁和谁的关系'、'A对B的影响'、'关联网络'等关系型问题",
+		Desc:        "查询实体关系，输入格式：{\"entities\": [\"实体1\", \"实体2\"],\"reason\":\"调用原因\"}",
 		ParamsOneOf: p,
 	}, nil
 }
 
 func (t *DGraphQueryTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
 	var args struct {
-		Entity []string `json:"entity"`
-		Reason string   `json:"reason"`
+		Entities []string `json:"entities"`
+		Reason   string   `json:"reason"`
 	}
 	if err := json.Unmarshal([]byte(argumentsInJSON), &args); err != nil {
 		return "", err
 	}
 
 	log.WithCtx(ctx).Infow("ToolCall", "name", "dgraph_query", "args", args, "原因", args.Reason)
-	if len(args.Entity) == 0 {
+	if len(args.Entities) == 0 {
 		return "", fmt.Errorf("请输入实体名称")
 	}
 	var nodes []string
-	for _, n := range args.Entity {
+	for _, n := range args.Entities {
 		one, err := t.d.QueryOne(ctx, n)
 		if err != nil {
-			log.WithCtx(ctx).Warnw("dgraph", "Entity", args.Entity, "error", err)
+			log.WithCtx(ctx).Warnw("dgraph", "Entity", args.Entities, "error", err)
 			continue
 		}
 		nodes = append(nodes, one.Uid)

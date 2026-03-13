@@ -41,6 +41,11 @@
             <span class="tool-label">工具:</span>
             <span class="tool-name">{{ step.tool_name }}</span>
           </div>
+          <div class="step-tool">
+            <span class="tool-label">参数:</span>
+            <span class="tool-name" ><pre>{{ JSON.parse(step.tool_args) }}</pre></span>
+          </div>
+
           <div class="step-reason" v-if="step.reason">
             <span class="reason-label">原因:</span>
             <span class="reason-text">{{ step.reason }}</span>
