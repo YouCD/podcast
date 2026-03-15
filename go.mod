@@ -3,41 +3,40 @@ module podcast
 go 1.25.4
 
 require (
-	github.com/cloudwego/eino v0.7.37
+	github.com/cloudwego/eino v0.8.1
 	github.com/cloudwego/eino-ext/components/document/loader/file v0.0.0-20260122064704-d8be5ee82c09
-	github.com/cloudwego/eino-ext/components/document/transformer/splitter/markdown v0.0.0-20260122064704-d8be5ee82c09
-	github.com/cloudwego/eino-ext/components/document/transformer/splitter/recursive v0.0.0-20260129022659-79f80daf11c9
-	github.com/cloudwego/eino-ext/components/document/transformer/splitter/semantic v0.0.0-20260129022659-79f80daf11c9
-	github.com/cloudwego/eino-ext/components/embedding/dashscope v0.0.0-20260122064704-d8be5ee82c09
-	github.com/cloudwego/eino-ext/components/indexer/milvus2 v0.0.0-20260122064704-d8be5ee82c09
-	github.com/cloudwego/eino-ext/components/model/qwen v0.1.5
-	github.com/cloudwego/eino-ext/components/retriever/milvus2 v0.0.0-20260129022659-79f80daf11c9
+	github.com/cloudwego/eino-ext/components/document/transformer/splitter/markdown v0.0.0-20260311121809-88ebb0eecbdb
+	github.com/cloudwego/eino-ext/components/document/transformer/splitter/recursive v0.0.0-20260311121809-88ebb0eecbdb
+	github.com/cloudwego/eino-ext/components/document/transformer/splitter/semantic v0.0.0-20260311121809-88ebb0eecbdb
+	github.com/cloudwego/eino-ext/components/embedding/dashscope v0.0.0-20260311121809-88ebb0eecbdb
+	github.com/cloudwego/eino-ext/components/indexer/milvus2 v0.0.0-20260311121809-88ebb0eecbdb
+	github.com/cloudwego/eino-ext/components/model/qwen v0.1.6
+	github.com/cloudwego/eino-ext/components/retriever/milvus2 v0.1.0
 	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.8
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.14
 	github.com/dgraph-io/dgo/v250 v250.0.0
-	github.com/duke-git/lancet/v2 v2.3.8
-	github.com/gin-gonic/gin v1.11.0
+	github.com/duke-git/lancet/v2 v2.3.9
+	github.com/gin-gonic/gin v1.12.0
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/golang-jwt/jwt/v4 v4.4.2
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/feeds v1.2.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/json-iterator/go v1.1.13-0.20220915233716-71ac16282d12
-	github.com/mark3labs/mcp-go v0.44.1
+	github.com/mark3labs/mcp-go v0.45.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/milvus-io/milvus/client/v2 v2.6.2
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/r3labs/sse v0.0.0-20210224172625-26fe804710bc
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/sashabaranov/go-openai v1.41.2
 	github.com/spf13/cast v1.10.0
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/youcd/toolkit v0.0.0-20260226063315-43a142dd49c7
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.18.0
+	golang.org/x/sync v0.19.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.75.1
 	gorm.io/driver/mysql v1.6.0
@@ -63,7 +62,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
-	github.com/cloudwego/eino-ext/components/model/openai v0.1.9 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
@@ -77,7 +75,7 @@ require (
 	github.com/evanphx/json-patch v0.5.2 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.11 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/getsentry/sentry-go v0.12.0 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -85,17 +83,16 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.28.0 // indirect
+	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/goccy/go-yaml v1.18.0 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
@@ -132,7 +129,7 @@ require (
 	github.com/prometheus/common v0.61.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.57.1 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/samber/lo v1.27.0 // indirect
@@ -169,6 +166,7 @@ require (
 	go.etcd.io/etcd/pkg/v3 v3.5.10 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.10 // indirect
 	go.etcd.io/etcd/server/v3 v3.5.10 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect
@@ -180,20 +178,18 @@ require (
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
-	go.uber.org/mock v0.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.23.0 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
-	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251103181224-f26f9409b101 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
-	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

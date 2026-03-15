@@ -3,20 +3,25 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 	"github.com/youcd/toolkit/log"
 )
 
 // PlanExecuteAgent Plan-and-Execute 模式的 Agent
+// 使用 react.Agent 作为执行器
 type PlanExecuteAgent struct {
 	planner   *Planner
-	executor  *Executor
+	executor  *react.Agent // 使用 eino 框架的 react.Agent 作为执行器
 	chatModel model.ToolCallingChatModel
 	tools     []tool.BaseTool
 
@@ -41,9 +46,35 @@ func NewPlanExecuteAgent(config *PlanExecuteAgentConfig) (*PlanExecuteAgent, err
 		config.MaxReplan = 3
 	}
 
+	// 创建 react.Agent 作为执行器
+	executor, err := react.NewAgent(context.Background(), &react.AgentConfig{
+		ToolCallingModel: config.ChatModel,
+		ToolsConfig:      compose.ToolsNodeConfig{Tools: config.Tools},
+		MaxStep:          20,
+		StreamToolCallChecker: func(ctx context.Context, sr *schema.StreamReader[*schema.Message]) (bool, error) {
+			defer sr.Close()
+			for {
+				msg, err := sr.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					return false, err
+				}
+				if len(msg.ToolCalls) > 0 {
+					return true, nil
+				}
+			}
+			return false, nil
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("创建 react.Agent 执行器失败: %w", err)
+	}
+
 	return &PlanExecuteAgent{
 		planner:        NewPlanner(config.ChatModel),
-		executor:       NewExecutor(config.Tools),
+		executor:       executor,
 		chatModel:      config.ChatModel,
 		tools:          config.Tools,
 		messageHandler: config.MessageHandle,
@@ -60,7 +91,7 @@ func (a *PlanExecuteAgent) Run(ctx context.Context, input *schema.Message) (*sch
 	})
 
 	// 1. 获取工具信息
-	toolsInfo, err := a.executor.GetToolInfo(ctx)
+	toolsInfo, err := a.getToolInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("获取工具信息失败: %w", err)
 	}
@@ -81,7 +112,7 @@ func (a *PlanExecuteAgent) Run(ctx context.Context, input *schema.Message) (*sch
 		"plan": plan,
 	})
 
-	// 3. 执行计划
+	// 3. 执行计划 - 使用 react.Agent 执行每个步骤
 	var allResults []string
 	for i := range plan.Steps {
 		step := &plan.Steps[i]
@@ -92,7 +123,7 @@ func (a *PlanExecuteAgent) Run(ctx context.Context, input *schema.Message) (*sch
 			"index": i,
 		})
 
-		result, err := a.executor.ExecuteStep(ctx, step)
+		result, err := a.executeStepWithReAct(ctx, step)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("步骤 %d 执行失败: %v", step.ID, err)
 			// 记录失败但继续执行
@@ -131,7 +162,7 @@ func (a *PlanExecuteAgent) Stream(ctx context.Context, input *schema.Message) (*
 	query := input.Content
 
 	// 获取工具信息
-	toolsInfo, err := a.executor.GetToolInfo(ctx)
+	toolsInfo, err := a.getToolInfo(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +201,7 @@ func (a *PlanExecuteAgent) Stream(ctx context.Context, input *schema.Message) (*
 			})
 		}
 
-		result, err := a.executor.ExecuteStep(ctx, step)
+		result, err := a.executeStepWithReAct(ctx, step)
 		if err != nil {
 			result = fmt.Sprintf("执行失败: %v", err)
 		}
@@ -201,6 +232,71 @@ func (a *PlanExecuteAgent) Stream(ctx context.Context, input *schema.Message) (*
 
 	// 生成最终答案（流式）
 	return a.streamFinalAnswer(ctx, query, plan, allResults)
+}
+
+// executeStepWithReAct 使用 react.Agent 执行单个步骤
+func (a *PlanExecuteAgent) executeStepWithReAct(ctx context.Context, step *PlanStep) (string, error) {
+	// 更新状态为运行中
+	step.Status = "running"
+
+	// 检查是否是无工具步骤
+	if step.ToolName == "none" || step.ToolName == "" {
+		step.Status = "completed"
+		step.Result = "无需调用工具"
+		return step.Result, nil
+	}
+
+	// 构建执行提示，让 react.Agent 理解当前任务
+	executionPrompt := a.buildExecutionPrompt(step)
+
+	// 使用 react.Agent 执行
+	msg := schema.UserMessage(executionPrompt)
+	response, err := a.executor.Generate(ctx, []*schema.Message{msg})
+	if err != nil {
+		step.Status = "failed"
+		step.Result = fmt.Sprintf("执行失败: %v", err)
+		return "", err
+	}
+
+	// 更新状态
+	step.Status = "completed"
+	step.Result = response.Content
+
+	return response.Content, nil
+}
+
+// buildExecutionPrompt 构建执行提示
+func (a *PlanExecuteAgent) buildExecutionPrompt(step *PlanStep) string {
+	var prompt strings.Builder
+
+	prompt.WriteString("请执行以下任务:\n\n")
+	prompt.WriteString(fmt.Sprintf("任务描述: %s\n", step.Description))
+	prompt.WriteString(fmt.Sprintf("推荐工具: %s\n", step.ToolName))
+
+	if step.ToolArgs != "" && step.ToolArgs != "{}" {
+		prompt.WriteString(fmt.Sprintf("推荐参数: %s\n", step.ToolArgs))
+	}
+
+	if step.Reason != "" {
+		prompt.WriteString(fmt.Sprintf("执行原因: %s\n", step.Reason))
+	}
+
+	prompt.WriteString("\n请使用适当的工具完成这个任务，并提供详细的执行结果。")
+
+	return prompt.String()
+}
+
+// getToolInfo 获取所有工具的信息
+func (a *PlanExecuteAgent) getToolInfo(ctx context.Context) ([]*schema.ToolInfo, error) {
+	var toolsInfo []*schema.ToolInfo
+	for _, t := range a.tools {
+		info, err := t.Info(ctx)
+		if err != nil {
+			return nil, err
+		}
+		toolsInfo = append(toolsInfo, info)
+	}
+	return toolsInfo, nil
 }
 
 // GetCurrentPlan 获取当前计划
@@ -237,7 +333,7 @@ func NewPlanExecuteAgentWithReplan(config *PlanExecuteAgentConfig, maxReplan int
 
 // ExecuteWithReplan 执行并支持重规划
 func (a *PlanExecuteAgentWithReplan) ExecuteWithReplan(ctx context.Context, query string) (string, error) {
-	toolsInfo, err := a.executor.GetToolInfo(ctx)
+	toolsInfo, err := a.getToolInfo(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -259,7 +355,7 @@ func (a *PlanExecuteAgentWithReplan) ExecuteWithReplan(ctx context.Context, quer
 				continue // 跳过已完成的步骤
 			}
 
-			result, err := a.executor.ExecuteStep(ctx, &plan.Steps[i])
+			result, err := a.executeStepWithReAct(ctx, &plan.Steps[i])
 			if err != nil {
 				result = fmt.Sprintf("执行失败: %v", err)
 			}

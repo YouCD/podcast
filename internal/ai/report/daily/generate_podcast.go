@@ -25,11 +25,11 @@ func generatePodcastContent(ctx context.Context, state *graphState) (*graphState
 		return state, err
 	}
 
-	llmResult, _, err := common.RunModelGenerate(ctx, "generatePodcastContent", format, openai.ChatCompletionResponseFormatTypeText, 5)
+	llmResult, llmInfo, err := common.RunModelGenerate(ctx, "generatePodcastContent", format, openai.ChatCompletionResponseFormatTypeText, 5)
 	if err != nil {
 		return state, err
 	}
 	state.report.PodcastContent = llmResult
-	log.WithCtx(ctx).Info("播客内容生成结束")
+	log.WithCtx(ctx).Infow("播客内容生成结束", "llmInfo", llmInfo)
 	return state, nil
 }

@@ -1,8 +1,6 @@
 package llm
 
 import (
-	"testing"
-
 	"podcast/config"
 )
 
@@ -11,8 +9,4 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func TestNewLLMPool(t *testing.T) {
-	NewLLMPool()
 }
