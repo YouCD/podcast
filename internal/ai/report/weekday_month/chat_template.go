@@ -2,6 +2,8 @@ package weekday_month
 
 import (
 	"context"
+	"podcast/internal/database/dao"
+	"podcast/internal/database/models"
 
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/schema"
@@ -10,7 +12,7 @@ import (
 
 func newGenQueryReWritingTemplate(ctx context.Context) prompt.ChatTemplate {
 	usePrompt := PromptRewriting
-
+	keyInfoDao := dao.NewKeyInfoDao(models.GetDb())
 	genre, _ := keyInfoDao.FindByKeynameAndGenre(ctx, "userQueryRewriting", 3)
 	if genre != nil {
 		log.WithCtx(ctx).Debugw("QueryAnalysis", "自定义问题重写提示词", genre.Data)
@@ -26,7 +28,7 @@ func newGenQueryReWritingTemplate(ctx context.Context) prompt.ChatTemplate {
 
 func newAnalysisTemplate(ctx context.Context, queryStr string) prompt.ChatTemplate {
 	usePrompt := PromptReportAnalysis
-
+	keyInfoDao := dao.NewKeyInfoDao(models.GetDb())
 	genre, _ := keyInfoDao.FindByKeynameAndGenre(ctx, queryStr, 3)
 	if genre != nil {
 		log.WithCtx(ctx).Debugw("QueryAnalysis", "自定义问题重写提示词", genre.Data)

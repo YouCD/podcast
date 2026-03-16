@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"podcast/internal/database/dao"
+	"podcast/internal/database/models"
 	"strings"
 	"time"
 
@@ -45,6 +47,7 @@ func getRssContent(ctx context.Context, state *graphState) (*graphState, error) 
 		log.WithCtx(ctx).Errorw("time.Parse", "time", state.userQuery.EndTime, "err", err)
 		return nil, fmt.Errorf("time.Parse err: %w", err)
 	}
+	rssContentDao := dao.NewRssContentDao(models.GetDb())
 
 	dateRange, err := rssContentDao.FindByDateRangeCategories(ctx, startTime, endTime, state.userQuery.Categories)
 	if err != nil {

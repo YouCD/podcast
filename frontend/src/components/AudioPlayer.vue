@@ -18,14 +18,10 @@
     <div class="player-controls">
       <button class="control-button" @click="togglePlay">
         <span v-if="!isPlaying" class="play-icon">
-          <svg class="icon" aria-hidden="true" :style="iconStyle">
-            <use xlink:href="#icon-24gl-playCircle"></use>
-          </svg>
+           <span  class="iconfont" :style="iconStyle">&#xe618;</span>
         </span>
         <span v-else class="pause-icon">
-          <svg class="icon" :style="iconStyle" aria-hidden="true">
-            <use xlink:href="#icon-zanting"></use>
-          </svg>
+          <span class="iconfont" :style="iconStyle">&#xe887;</span>
         </span>
       </button>
 
@@ -52,19 +48,13 @@
 
       <button class="control-button" @click="toggleMute">
         <span v-if="isMuted || volume === 0" class="mute-icon">
-          <svg class="icon" :style="iconStyle" aria-hidden="true">
-            <use xlink:href="#icon-shengyinjingyin"></use>
-          </svg>
+          <span class="iconfont" :style="iconStyle"> &#xeca9;</span>
         </span>
         <span v-else-if="volume > 0.5" class="volume-high-icon">
-          <svg class="icon" :style="iconStyle" aria-hidden="true">
-            <use xlink:href="#icon-yinliang"></use>
-          </svg>
+           <span class="iconfont" :style="iconStyle"> &#xe87a;</span>
         </span>
         <span v-else class="volume-low-icon">
-          <svg class="icon" :style="iconStyle" aria-hidden="true">
-            <use xlink:href="#icon-yinliang"></use>
-          </svg>
+          <span class="iconfont" :style="iconStyle"> &#xe87a;</span>
         </span>
       </button>
 
@@ -186,7 +176,19 @@ const onPlay = () => {
 // 暂停事件处理
 const onPause = () => {
   isPlaying.value = false;
+  console.log("暂停")
 };
+
+const iconHandel=()=>{
+console.log( isPlaying.value)
+  if(   isPlaying.value){
+    return "\ue618";
+  }
+
+  if(  ! isPlaying.value){
+    return "\ue887";
+  }
+}
 
 // 加载元数据
 const onLoadedMetadata = () => {

@@ -4,17 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"podcast/internal/database/dao"
-	"podcast/internal/database/models"
 	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino/compose"
 	"github.com/youcd/toolkit/log"
-)
-
-var (
-	keyInfoDao                      = dao.NewKeyInfoDao(models.GetDb())
-	rssContentDao dao.RssContentDao = dao.NewRssContentDao(models.GetDb())
 )
 
 // graphState 全局状态（用于节点间共享数据）

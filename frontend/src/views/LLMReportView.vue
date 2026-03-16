@@ -62,7 +62,7 @@
         @ended="endedHandler"
         @close="togglePlayer"
         @time-update="onTimeUpdate"
-        :icon-style="{ color: '#ffffff', fontSize: '13px' }"
+        :icon-style="{ color: '#ffffff', fontSize: '20px' }"
       />
     </div>
   </main>
