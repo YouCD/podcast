@@ -62,7 +62,7 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 			if len(runes) > 10 {
 				count++
 				if count > 3 {
-					log.WithCtx(ctx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "error", "too many retries")
+					log.WithCtx(ctx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "category", category, "error", "too many retries")
 					category = "其他"
 					return
 				}

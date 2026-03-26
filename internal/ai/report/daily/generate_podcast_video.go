@@ -196,7 +196,6 @@ func streamResult(ctx context.Context, eventID string) (string, error) {
 func genPodcastVideo(ctx context.Context, cfg *types.Podcast, data string) (string, error) {
 	fileName := fmt.Sprintf("%s.mp3", time.Now().Format("2006-01-02_15_04_05"))
 	f := path.Join(cfg.Dir, fileName)
-	log.WithCtx(ctx).Debugf("fileName: %s", f)
 
 	_ = os.MkdirAll(cfg.Dir, 0o755)
 	err := byte_dance.PodCast(ctx, cfg.ByteDance.AppID, cfg.ByteDance.AccessToken, f, data)
@@ -204,5 +203,6 @@ func genPodcastVideo(ctx context.Context, cfg *types.Podcast, data string) (stri
 		log.WithCtx(ctx).Error(err)
 		return "", err
 	}
+	log.WithCtx(ctx).Debugf("fileName: %s", f)
 	return fileName, nil
 }

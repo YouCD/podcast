@@ -298,3 +298,109 @@ schema {
 
 
 ```
+
+## 节点合并操作
+1. 查看两个节点的当前状态
+```dql
+{
+  # 查询源节点 0x8d6
+  source as var(func: uid(0x8d6))
+  
+  # 查询目标节点 0x493
+  target as var(func: uid(0x493))
+  
+  # 获取详细信息（修复后）
+  merge_check(func: uid(source, target)) {
+    uid
+    # 删掉手动写的 name、aliases、dgraph.type，expand 会自动包含
+    expand(_all_) {
+      uid
+      name
+    }
+  }
+} 
+
+```
+
+
+2. 检查两个节点的关系引用（入边/出边）
+```dql
+{
+  # 检查谁引用了这两个节点（入边）
+  incoming(func: uid(0x8d6, 0x493)) {
+    uid
+    name
+    ~* {  # 所有入边
+      uid
+      name
+      predicate
+    }
+  }
+  
+  # 检查这两个节点引用了谁（出边）—— 已修复
+  outgoing(func: uid(0x8d6, 0x493)) {
+    uid
+    # 删掉 name、aliases 等手动字段，只保留 expand
+    expand(_all_) {
+      uid
+      name
+    }
+  }
+} 
+
+
+
+```
+
+3. 统计别名数量（用于对比）
+
+```dql
+{
+  alias_count(func: uid(0x493)) {
+    uid
+    name
+    alias_count: count(aliases)
+    aliases
+  }
+  
+  source_alias_count(func: uid(0x8d6)) {
+    uid
+    name
+    alias_count: count(aliases)
+    aliases
+  }
+}
+
+```
+```
+"uid": "0x493",
+        "name": "OpenClaw",
+        "alias_count": 37,
+
+     "name": "虾宝",
+        "alias_count": 1,
+```
+
+二、执行合并操作
+
+步骤 1：将 0x8d6 的别名迁移到 0x493
+
+```sql
+{
+  "set": [
+    {
+      "uid": "0x493",
+      "aliases": "虾宝"
+    },
+    {
+      "uid": "0x493",
+      "aliases": "OpenClawAgent"
+    },
+    {
+      "uid": "0x493",
+      "aliases": "虾宝AI"
+    }
+  ]
+}
+
+```
