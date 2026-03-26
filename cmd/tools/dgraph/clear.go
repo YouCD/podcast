@@ -590,9 +590,12 @@ func (c *DgraphCleaner) deleteBatch(batch []EdgeToFix) error {
 
 // getNodeInfo 获取节点详细信息（包括入边和出边）
 func (c *DgraphCleaner) getNodeInfo(uid string) (*NodeInfo, error) {
-	// 查询节点的详细信息，包括所有出边
-	// 使用两步查询：先获取基本信息，再获取所有边
-	query := fmt.Sprintf(`
+	nodeInfo := &NodeInfo{
+		UID: uid,
+	}
+
+	// 第一步：查询节点的基本信息
+	queryBasic := fmt.Sprintf(`
 	{
 		q(func: uid(%s)) {
 			uid
@@ -603,14 +606,13 @@ func (c *DgraphCleaner) getNodeInfo(uid string) (*NodeInfo, error) {
 	}`, uid)
 
 	txn := c.dg.NewReadOnlyTxn()
-	defer txn.Discard(context.Background())
-
-	resp, err := txn.Query(context.Background(), query)
+	resp, err := txn.Query(context.Background(), queryBasic)
+	txn.Discard(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("查询节点 %s 失败: %w", uid, err)
 	}
 
-	var result struct {
+	var basicResult struct {
 		Q []struct {
 			UID        string   `json:"uid"`
 			Name       string   `json:"name"`
@@ -619,39 +621,79 @@ func (c *DgraphCleaner) getNodeInfo(uid string) (*NodeInfo, error) {
 		} `json:"q"`
 	}
 
-	if err := json.Unmarshal(resp.Json, &result); err != nil {
+	if err := json.Unmarshal(resp.Json, &basicResult); err != nil {
 		return nil, fmt.Errorf("解析节点 %s 数据失败: %w", uid, err)
 	}
 
-	if len(result.Q) == 0 {
+	if len(basicResult.Q) == 0 {
 		return nil, fmt.Errorf("节点 %s 不存在", uid)
 	}
 
-	nodeData := result.Q[0]
-	nodeInfo := &NodeInfo{
-		UID:     nodeData.UID,
-		Name:    nodeData.Name,
-		Aliases: nodeData.Aliases,
-	}
-
+	nodeData := basicResult.Q[0]
+	nodeInfo.Name = nodeData.Name
+	nodeInfo.Aliases = nodeData.Aliases
 	if len(nodeData.DgraphType) > 0 {
 		nodeInfo.Type = nodeData.DgraphType[0]
 	}
 
-	// 获取 schema 中的所有谓词
-	predicates, err := c.getAllPredicates()
+	// 第二步：使用 expand(_all_) 获取所有出边
+	queryEdges := fmt.Sprintf(`
+	{
+		q(func: uid(%s)) {
+			expand(_all_) {
+				uid
+			}
+		}
+	}`, uid)
+
+	txn2 := c.dg.NewReadOnlyTxn()
+	resp2, err := txn2.Query(context.Background(), queryEdges)
+	txn2.Discard(context.Background())
 	if err != nil {
-		log.Printf("警告: 获取谓词列表失败: %v", err)
+		// 如果 expand 失败，回退到逐个谓词查询
+		log.Printf("警告: expand(_all_) 查询失败，回退到逐个谓词查询: %v", err)
+		predicates, err := c.getAllPredicates()
+		if err == nil {
+			for _, predicate := range predicates {
+				edges := c.getOutEdgesForPredicate(uid, predicate)
+				nodeInfo.OutEdges = append(nodeInfo.OutEdges, edges...)
+			}
+		}
 	} else {
-		// 为每个谓词查询出边
-		for _, predicate := range predicates {
-			edges := c.getOutEdgesForPredicate(uid, predicate)
-			nodeInfo.OutEdges = append(nodeInfo.OutEdges, edges...)
+		// 解析出边
+		var rawResult map[string]interface{}
+		if err := json.Unmarshal(resp2.Json, &rawResult); err == nil {
+			if qList, ok := rawResult["q"].([]interface{}); ok && len(qList) > 0 {
+				if nodeMap, ok := qList[0].(map[string]interface{}); ok {
+					for key, value := range nodeMap {
+						// 跳过 uid 字段
+						if key == "uid" {
+							continue
+						}
+
+						// 检查是否是边（值为数组且包含 uid）
+						if targets, ok := value.([]interface{}); ok {
+							predFormatted := "<" + key + ">"
+							for _, target := range targets {
+								if targetMap, ok := target.(map[string]interface{}); ok {
+									if targetUID, ok := targetMap["uid"].(string); ok {
+										nodeInfo.OutEdges = append(nodeInfo.OutEdges, EdgeInfo{
+											Predicate: predFormatted,
+											SourceUID: uid,
+											TargetUID: targetUID,
+										})
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
-	// 查询入边
-	inEdges, err := c.getInEdges(uid)
+	// 查询入边 - 使用优化后的方法
+	inEdges, err := c.getInEdgesOptimized(uid)
 	if err != nil {
 		log.Printf("警告: 查询节点 %s 入边失败: %v", uid, err)
 	} else {
@@ -866,6 +908,117 @@ func (c *DgraphCleaner) getInEdges(uid string) ([]EdgeInfo, error) {
 									})
 								}
 							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(inEdges) > 0 {
+		log.Printf("  - 找到 %d 条入边", len(inEdges))
+	}
+
+	return inEdges, nil
+}
+
+// getInEdgesOptimized 优化版的入边查询 - 使用反向查询一次性获取所有入边
+func (c *DgraphCleaner) getInEdgesOptimized(uid string) ([]EdgeInfo, error) {
+	var inEdges []EdgeInfo
+
+	// 获取所有谓词
+	schemaQuery := `schema { predicate }`
+	txn := c.dg.NewReadOnlyTxn()
+	resp, err := txn.Query(context.Background(), schemaQuery)
+	txn.Discard(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("获取 schema 失败: %w", err)
+	}
+
+	var schemaResult struct {
+		Schema []struct {
+			Predicate string `json:"predicate"`
+		} `json:"schema"`
+	}
+
+	if err := json.Unmarshal(resp.Json, &schemaResult); err != nil {
+		return nil, fmt.Errorf("解析 schema 失败: %w", err)
+	}
+
+	// 收集所有谓词（跳过内置谓词）
+	var predicates []string
+	for _, s := range schemaResult.Schema {
+		pred := s.Predicate
+		if pred == "dgraph.type" || pred == "dgraph.graph.xid" {
+			continue
+		}
+		predicates = append(predicates, pred)
+	}
+
+	// 构建批量查询 - 使用反向查询语法 ~predicate
+	// 一次性查询所有谓词的入边
+	var queryParts []string
+	for _, pred := range predicates {
+		// 使用反向查询：~predicate 表示反向边
+		queryParts = append(queryParts, fmt.Sprintf(`
+		%s_inedges: var(func: has(%s)) @filter(has(~%s)) {
+			~%s @filter(uid(%s)) {
+				uid
+			}
+		}`, pred, pred, pred, pred, uid))
+	}
+
+	// 由于查询可能太长，分批查询
+	const batchSize = 50
+	for i := 0; i < len(predicates); i += batchSize {
+		end := i + batchSize
+		if end > len(predicates) {
+			end = len(predicates)
+		}
+		batchPredicates := predicates[i:end]
+
+		// 构建查询
+		var queryBuilder strings.Builder
+		queryBuilder.WriteString("{\n")
+		for _, pred := range batchPredicates {
+			// 查询指向目标节点的源节点
+			queryBuilder.WriteString(fmt.Sprintf(`
+		%s_sources: var(func: has(%s)) @cascade {
+			%s @filter(uid(%s)) {
+				uid
+			}
+		}
+`, pred, pred, pred, uid))
+		}
+		queryBuilder.WriteString("}")
+
+		txn2 := c.dg.NewReadOnlyTxn()
+		resp2, err := txn2.Query(context.Background(), queryBuilder.String())
+		txn2.Discard(context.Background())
+		if err != nil {
+			continue // 忽略错误，继续下一批
+		}
+
+		// 解析结果
+		var rawResult map[string]interface{}
+		if err := json.Unmarshal(resp2.Json, &rawResult); err != nil {
+			continue
+		}
+
+		// 解析每个谓词的结果
+		for _, pred := range batchPredicates {
+			key := pred + "_sources"
+			if sources, ok := rawResult[key].([]interface{}); ok {
+				predFormatted := "<" + pred + ">"
+				for _, source := range sources {
+					if sourceMap, ok := source.(map[string]interface{}); ok {
+						sourceUID, _ := sourceMap["uid"].(string)
+						if sourceUID != "" && sourceUID != uid {
+							inEdges = append(inEdges, EdgeInfo{
+								Predicate: predFormatted,
+								SourceUID: sourceUID,
+								TargetUID: uid,
+							})
 						}
 					}
 				}
