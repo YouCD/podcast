@@ -22,9 +22,9 @@ func newGenHtmlSummaryTemplate() prompt.ChatTemplate {
 }
 
 func newGenPodcastSummaryTemplate() prompt.ChatTemplate {
-	return prompt.FromMessages(schema.FString,
+	return prompt.FromMessages(schema.GoTemplate,
 		schema.SystemMessage(PromptMarkdown2Podcast),
 		schema.UserMessage(`内容如下:
-{content}`),
+{{.content}}`),
 	)
 }

@@ -52,18 +52,24 @@ func generatePodcastContent(ctx context.Context, state *graphState) (*graphState
 	}
 	if state.isNewReport {
 		if state.report.Content == "" {
-			return state, ErrContentIsEmpty
+			// 内容为空时，记录警告但不返回错误，让工作流继续执行
+			log.WithCtx(ctx).Warn("播客内容生成跳过：报告内容为空")
+			return state, nil
 		}
 	}
 	log.WithCtx(ctx).Info("播客内容生成开始")
 	format, err := newGenPodcastSummaryTemplate().Format(ctx, map[string]any{"content": state.report.Content})
 	if err != nil {
-		return state, err
+		// 格式化失败时，记录错误但不中断工作流
+		log.WithCtx(ctx).Errorw("播客内容格式化失败", "error", err)
+		return state, nil
 	}
 
 	llmResult, llmInfo, err := common.RunModelGenerate(ctx, "generatePodcastContent", format, openai.ChatCompletionResponseFormatTypeText, 5)
 	if err != nil {
-		return state, err
+		// LLM 调用失败时，记录错误但不中断工作流
+		log.WithCtx(ctx).Errorw("播客内容 LLM 生成失败", "error", err)
+		return state, nil
 	}
 
 	// 解析JSON格式的播客脚本，转换为纯文本格式
@@ -74,7 +80,9 @@ func generatePodcastContent(ctx context.Context, state *graphState) (*graphState
 		if strings.HasPrefix(strings.TrimSpace(llmResult), "[S1]") || strings.HasPrefix(strings.TrimSpace(llmResult), "[S2]") {
 			podcastText = llmResult // 直接使用原始输出
 		} else {
-			return state, fmt.Errorf("播客脚本格式错误，既不是合法JSON也不是纯文本格式: %w", err)
+			// 格式错误时，记录警告但不中断工作流
+			log.WithCtx(ctx).Warnw("播客脚本格式错误，既不是合法JSON也不是纯文本格式", "error", err)
+			return state, nil
 		}
 	}
 

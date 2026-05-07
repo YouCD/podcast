@@ -2,6 +2,9 @@ package daily
 
 import (
 	"context"
+	"podcast/internal/ai/llm"
+	"testing"
+	"time"
 
 	"podcast/config"
 	"podcast/internal/database/models"
@@ -10,14 +13,30 @@ import (
 )
 
 func init() {
-	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.yaml")
+	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.local.yaml")
 	if err != nil {
 		panic(err)
 	}
 	log.WithCtx(context.Background()).Infof("%#v", c)
-	models.Init()
-	//// 初始化Redis客户端
-	//if err := pkg.InitRedisClient(); err != nil {
-	//	log.Errorf("警告: Redis初始化失败: %v", err)
-	//}
+	_, err = models.Init(c)
+	if err != nil {
+		panic(err)
+	}
+	llm.NewLLMPool(config.Cfg.LLM)
+
+}
+
+func TestNew(t *testing.T) {
+	ctx := context.Background()
+	dailyReport, err := New(ctx, config.Cfg.Podcast)
+	if err != nil {
+		panic(err)
+	}
+	now := time.Now()
+	_, err = dailyReport.Invoke(ctx, 0)
+	if err != nil {
+		log.WithCtx(ctx).Errorf("每日报告任务失败,持续时间：%s, err: %s", time.Since(now), err)
+		return
+	}
+	log.WithCtx(ctx).Infof("每日报告任务执行完成，持续时间：%s", time.Since(now))
 }

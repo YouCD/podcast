@@ -66,7 +66,10 @@ func buildDailyWorkflow(cfg *types.Podcast) *compose.Graph[int, *graphState] {
 	// 6. generate_podcast_content -> generate_podcast_video
 	_ = graph.AddEdge("generate_podcast_content", "generate_podcast_video")
 
-	// 7. generate_podcast_video -> save_report
+	// 7. generate_html 和 generate_podcast_video 都连接到 save_report
+	// save_report 会等待两个分支都完成后执行
+	// 即使播客生成失败（节点内部处理错误返回 nil），工作流也能继续执行到 save_report
+	_ = graph.AddEdge("generate_html", "save_report")
 	_ = graph.AddEdge("generate_podcast_video", "save_report")
 	_ = graph.AddEdge("save_report", compose.END)
 
