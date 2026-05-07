@@ -95,7 +95,7 @@ func createPodcastFromDialogue(ctx context.Context, appid, accessToken string, d
 
 		case MsgTypeFullServerResponse:
 			switch msg.EventType {
-			case EventType_PodcastEnd: // 事件码 363 【turn0fetch0】
+			case EventType_PodcastEnd: // 事件码 363
 				var data struct {
 					MetaInfo struct {
 						AudioURL string `json:"audio_url"`
@@ -106,20 +106,21 @@ func createPodcastFromDialogue(ctx context.Context, appid, accessToken string, d
 				}
 				audioURL = data.MetaInfo.AudioURL
 				log.WithCtx(ctx).Info("获取到音频下载地址", audioURL)
-				break
 			case EventType_UsageResponse:
 				if err = json.Unmarshal(msg.Payload, &useageResp); err == nil {
 					inputTextTokens += useageResp.Usage.InputTextTokens
 					outputAudioTokens += useageResp.Usage.OutputAudioTokens
 				}
-
+			case EventType_SessionFailed:
+				// 会话失败，返回错误
+				return "", fmt.Errorf("会话失败: %s", string(msg.Payload))
 			case EventType_SessionFinished:
 				// 会话结束，退出循环
 				goto END_LOOP
 			}
 		default:
 			// 忽略音频分片消息 (MsgTypeAudioOnlyServer) 和其他中间状态
-			// log.WithCtx(ctx).Infof("忽略中间消息 Type: %d, Event: %d", msg.MsgType, msg.EventType)
+			log.WithCtx(ctx).Debugf("忽略中间消息 Type: %s, Event: %s", msg.MsgType, msg.EventType)
 		}
 	}
 
@@ -220,6 +221,11 @@ func parseScript(rawText string, speakerMap map[string]string) []PodcastRound {
 			label := matches[1] // 提取到的标签，如 "S1"
 			text := matches[2]  // 提取到的台词
 
+			// 跳过以 "……" 开头的台词
+			if strings.HasPrefix(text, "……") {
+				continue
+			}
+
 			// 从映射表中查找对应的发音人ID
 			speakerID, ok := speakerMap[label]
 			if !ok {
@@ -242,7 +248,7 @@ func PodCast(ctx context.Context, appid, accessToken, output, data string) error
 		"S2": "zh_male_dayixiansheng_v2_saturn_bigtts",  // 男声
 		"S1": "zh_female_mizaitongxue_v2_saturn_bigtts", // 女声
 	}
-	// 示例对话文本 - 这里可以替换为你的实际对话数据
+	// 对话数据
 	dialogues := parseScript(data, speakerMapping)
 
 	// 1. 创建播客任务，获取下载地址
