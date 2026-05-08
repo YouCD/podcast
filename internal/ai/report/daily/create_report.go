@@ -43,11 +43,16 @@ func getExistingReport(ctx context.Context, id int) (*models.Report, time.Time, 
 		var startDate, endDate time.Time
 		var question string
 		// 获取昨天的日期范围
-
 		yesterday := time.Now().AddDate(0, 0, -1)
 		startDate = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, yesterday.Location())
 		endDate = time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 23, 59, 59, 0, yesterday.Location())
 		question = fmt.Sprintf("日报-%s", yesterday.Format("2006-01-02"))
+
+		byQuestion, err := reportDao.GetRepoByQuestion(ctx, question)
+		if err == nil {
+			log.WithCtx(ctx).Infof("已存在日报记录: %#v", byQuestion)
+			return byQuestion, startDate, endDate, question, nil
+		}
 		return nil, startDate, endDate, question, nil
 	}
 

@@ -120,7 +120,7 @@ func createPodcastFromDialogue(ctx context.Context, appid, accessToken string, d
 			}
 		default:
 			// 忽略音频分片消息 (MsgTypeAudioOnlyServer) 和其他中间状态
-			log.WithCtx(ctx).Debugf("忽略中间消息 Type: %s, Event: %s", msg.MsgType, msg.EventType)
+			//			log.WithCtx(ctx).Debugf("忽略中间消息 Type: %s, Event: %s", msg.MsgType, msg.EventType)
 		}
 	}
 
@@ -221,8 +221,8 @@ func parseScript(rawText string, speakerMap map[string]string) []PodcastRound {
 			label := matches[1] // 提取到的标签，如 "S1"
 			text := matches[2]  // 提取到的台词
 
-			// 跳过以 "……" 开头的台词
-			if strings.HasPrefix(text, "……") {
+			// 跳过 "……" 台词
+			if text == "……" {
 				continue
 			}
 

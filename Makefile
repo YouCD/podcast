@@ -29,7 +29,7 @@ build:
 	@echo "开始编译..."
 	@mkdir -p $(BINARY_DIR)
 	$(GO_BUILD) -o $(BINARY_PATH) -ldflags $(FLAG)  main.go
-	@upx $(BINARY_PATH)
+	@upx --lzma $(BINARY_PATH)
 	@echo "编译完成，二进制文件位于 $(BINARY_PATH)"
 
 # 清理生成的二进制文件

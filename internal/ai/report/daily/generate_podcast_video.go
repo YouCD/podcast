@@ -46,12 +46,6 @@ func generatePodcastVideo(ctx context.Context, cfg *types.Podcast, state *graphS
 		return state, nil
 	}
 
-	//file, err := save2File(ctx, podcastUrl)
-	//if err != nil {
-	//	log.WithCtx(ctx).Errorf("保存播客文件失败: %s", err)
-	//	return state, nil
-	//}
-
 	state.report.PodcastMP3URL = file
 	log.WithCtx(ctx).Info("播客音频生成完成")
 	return state, nil

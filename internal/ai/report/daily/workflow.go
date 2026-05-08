@@ -21,6 +21,18 @@ type graphState struct {
 	isNewReport bool
 }
 
+func init() {
+	// 注册 graphState 的合并函数
+	// 由于所有节点共享同一个 state 对象，合并时只需返回其中一个即可
+	compose.RegisterValuesMergeFunc(func(states []*graphState) (*graphState, error) {
+		if len(states) == 0 {
+			return nil, fmt.Errorf("no states to merge")
+		}
+		// 返回第一个 state（所有 state 实际上是同一个对象）
+		return states[0], nil
+	})
+}
+
 func buildDailyWorkflow(cfg *types.Podcast) *compose.Graph[int, *graphState] {
 	graph := compose.NewGraph[int, *graphState]()
 
@@ -80,7 +92,8 @@ func New(ctx context.Context, cfg *types.Podcast) (compose.Runnable[int, *graphS
 	// 构建工作流
 	workflow := buildDailyWorkflow(cfg)
 	// 编译（启用流式处理和回调）
-	runnable, err := workflow.Compile(ctx)
+	// 使用 AllPredecessor 模式，确保 save_report 等待所有前驱节点完成后再执行
+	runnable, err := workflow.Compile(ctx, compose.WithNodeTriggerMode(compose.AllPredecessor))
 	if err != nil {
 		log.WithCtx(ctx).Error(err)
 		return nil, fmt.Errorf("编译工作流失败: %w", err)
