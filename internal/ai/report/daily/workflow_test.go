@@ -2,9 +2,10 @@ package daily
 
 import (
 	"context"
-	"podcast/internal/ai/llm"
 	"testing"
 	"time"
+
+	"podcast/internal/ai/llm"
 
 	"podcast/config"
 	"podcast/internal/database/models"
@@ -23,7 +24,6 @@ func init() {
 		panic(err)
 	}
 	llm.NewLLMPool(config.Cfg.LLM)
-
 }
 
 func TestNew(t *testing.T) {
