@@ -43,8 +43,15 @@ type llmEntry struct {
 func NewLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
 	entries := make([]*llmEntry, 0, len(llmConfigs))
 	limiters := make(map[string]*rate.Limiter)
+	seen := make(map[string]struct{})
 	for _, cfg := range llmConfigs {
-		key := fmt.Sprintf("%s|%s", cfg.Model, cfg.BaseURL)
+		key := fmt.Sprintf("%s|%s|%s", cfg.ApiKey, cfg.Model, cfg.GetBaseURL())
+		// 去重：相同 key 的配置只保留第一个
+		if _, ok := seen[key]; ok {
+			log.WithCtx(context.Background()).Warnf("duplicate LLM config skipped: %s|%s", cfg.Model, cfg.GetBaseURL())
+			continue
+		}
+		seen[key] = struct{}{}
 		entries = append(entries, &llmEntry{
 			info: cfg,
 			key:  key,
@@ -149,5 +156,5 @@ func (p *LLMPool) MarkRateLimited(ctx context.Context, info *types.LLMInfo) {
 }
 
 func (p *LLMPool) getKey(info *types.LLMInfo) string {
-	return fmt.Sprintf("%s|%s", info.GetModelName(), info.GetBaseURL())
+	return fmt.Sprintf("%s|%s|%s", info.ApiKey, info.GetModelName(), info.GetBaseURL())
 }
