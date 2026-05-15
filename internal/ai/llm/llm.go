@@ -14,13 +14,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// 全局 LLM 池实例（用于兼容旧代码）
-var (
-	globalPool     *LLMPool
-	globalPoolOnce sync.Once
-	globalPoolMu   sync.RWMutex
-)
-
 // LLMPool LLM 连接池，管理多个 LLM 提供商
 type LLMPool struct {
 	entries  []*llmEntry              // 所有可用配置
@@ -74,20 +67,7 @@ func NewLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
 		baseDelay: 4 * time.Hour, // 基础冷却 1h
 	}
 
-	// 设置全局池
-	globalPoolMu.Lock()
-	globalPool = pool
-	globalPoolMu.Unlock()
-
 	return pool
-}
-
-// GetLLMPool 获取全局 LLM 池实例（兼容旧代码）
-// Deprecated: 推荐通过依赖注入使用 LLMPool
-func GetLLMPool() *LLMPool {
-	globalPoolMu.RLock()
-	defer globalPoolMu.RUnlock()
-	return globalPool
 }
 
 // Get 从池中获取一个可用的 LLM，支持重试和上下文取消

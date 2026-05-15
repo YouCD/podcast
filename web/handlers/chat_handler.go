@@ -19,11 +19,12 @@ import (
 type ChatHandler struct {
 	chatService *service.ChatService
 	ragCfg      *agent.RAGAgentConfig
+	llmPool     *llm.LLMPool
 }
 
 // NewChatHandler 创建新的聊天处理器
-func NewChatHandler(chatService *service.ChatService, ragCfg *agent.RAGAgentConfig) *ChatHandler {
-	return &ChatHandler{chatService: chatService, ragCfg: ragCfg}
+func NewChatHandler(chatService *service.ChatService, ragCfg *agent.RAGAgentConfig, llmPool *llm.LLMPool) *ChatHandler {
+	return &ChatHandler{chatService: chatService, ragCfg: ragCfg, llmPool: llmPool}
 }
 
 // GetChatHistory 根据会话ID获取聊天记录
@@ -181,7 +182,7 @@ func (h *ChatHandler) ChangeTitle(c *gin.Context) {
 	}
 
 	// 2. 调用 LLM 生成标题
-	pool := llm.GetLLMPool()
+	pool := h.llmPool
 	llmInfo, err := pool.Get(c)
 	if err != nil {
 		ErrorWithMessage(c, "Failed to get LLM info: "+err.Error())

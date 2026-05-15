@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	"podcast/internal/ai/llm"
-	"podcast/pkg/types"
-
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
+	"podcast/pkg/types"
 )
 
-func saveToMilvus(ctx context.Context, rss *models.RssContent, cfg *types.RagConfig) error {
-	llmPool := llm.GetLLMPool()
+func saveToMilvus(ctx context.Context, llmPool *llm.LLMPool, rss *models.RssContent, cfg *types.RagConfig) error {
 	llmInfo, err := llmPool.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("get llm error: %w", err)

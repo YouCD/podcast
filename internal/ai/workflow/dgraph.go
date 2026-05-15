@@ -47,7 +47,7 @@ func dgraph(ctx context.Context, state *graphState) ([]*types.RSSItem, error) {
 				log.WithCtx(ctx).Errorw("dgraph", "error", err)
 				return
 			}
-			llmResult, llmInfo, err := common.RunModelGenerate(ctx, "dgraph", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
+			llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "dgraph", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("dgraph", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "error", err)
 				return

@@ -54,7 +54,7 @@ func isRetryableRateLimit(err error) bool {
 		strings.Contains(s, "requests per") // dashscope 常见
 }
 
-func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time.Duration, responseFormat openai.ChatCompletionResponseFormatType) (*retryChatModel, error) {
+func NewRetryChatModel(ctx context.Context, pool *llm.LLMPool, maxRetry int, backoff func(int) time.Duration, responseFormat openai.ChatCompletionResponseFormatType) (*retryChatModel, error) {
 	if maxRetry < 0 {
 		maxRetry = 0
 	}
@@ -66,7 +66,7 @@ func NewRetryChatModel(ctx context.Context, maxRetry int, backoff func(int) time
 	m := &retryChatModel{
 		maxRetry:       maxRetry,
 		backoff:        backoff,
-		llmPool:        llm.GetLLMPool(),
+		llmPool:        pool,
 		responseFormat: responseFormat,
 	}
 	// 构建ReAct Agent
@@ -230,13 +230,12 @@ func (r *retryChatModel) GetModelName() string {
 }
 
 func (r *retryChatModel) newModel(ctx context.Context) (*qwen.ChatModel, error) {
-	llmPool := llm.GetLLMPool()
-	llmInfo, err := llmPool.Get(ctx)
+	llmInfo, err := r.llmPool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get LLM info: %w", err)
 	}
 	defer func() {
-		llmPool.Put(ctx, llmInfo)
+		r.llmPool.Put(ctx, llmInfo)
 	}()
 	// 构建ReAct Agent
 	chatModel, err := pkg.NewChatModel(ctx, llmInfo, r.responseFormat)

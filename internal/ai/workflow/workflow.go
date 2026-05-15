@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"podcast/internal/ai/embedding"
+	"podcast/internal/ai/llm"
 	"podcast/internal/ai/milvus"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
@@ -24,6 +25,7 @@ type graphState struct {
 	Categorization map[*types.RSSItem]string
 	LlmResult      []*types.RSSItem
 	Errors         []error
+	llmPool        *llm.LLMPool
 }
 
 // RSSWorkflow RSS工作流，包含依赖注入的组件
@@ -31,10 +33,11 @@ type RSSWorkflow struct {
 	cfg          *types.RagConfig
 	deduplicator *Deduplicator
 	milvusClient *milvus.Milvus
+	llmPool      *llm.LLMPool
 }
 
 // NewRSSWorkflow 创建RSS工作流实例
-func NewRSSWorkflow(ctx context.Context, cfg *types.RagConfig) (*RSSWorkflow, error) {
+func NewRSSWorkflow(ctx context.Context, cfg *types.RagConfig, llmPool *llm.LLMPool) (*RSSWorkflow, error) {
 	// 初始化 milvus 客户端
 	milvusClient := milvus.NewMilvus(ctx, cfg.Milvus)
 
@@ -63,6 +66,7 @@ func NewRSSWorkflow(ctx context.Context, cfg *types.RagConfig) (*RSSWorkflow, er
 		cfg:          cfg,
 		deduplicator: deduplicator,
 		milvusClient: milvusClient,
+		llmPool:      llmPool,
 	}, nil
 }
 
@@ -82,17 +86,26 @@ func (w *RSSWorkflow) buildGraph() *compose.Graph[[]*types.RSSSource, []*types.R
 	}))
 
 	// 节点 4: 并行分类处理
-	_ = graph.AddLambdaNode("categorization", compose.InvokableLambda(categorization))
+	_ = graph.AddLambdaNode("categorization", compose.InvokableLambda(func(ctx context.Context, state *graphState) (*graphState, error) {
+		state.llmPool = w.llmPool
+		return categorization(ctx, state)
+	}))
 
 	// 节点 5: rss内容分析
-	_ = graph.AddLambdaNode("analyze_rss", compose.InvokableLambda(analyzeRss))
+	_ = graph.AddLambdaNode("analyze_rss", compose.InvokableLambda(func(ctx context.Context, state *graphState) (*graphState, error) {
+		state.llmPool = w.llmPool
+		return analyzeRss(ctx, state)
+	}))
 
 	// 节点 7: 关系分析
-	_ = graph.AddLambdaNode("dgraph", compose.InvokableLambda(dgraph))
+	_ = graph.AddLambdaNode("dgraph", compose.InvokableLambda(func(ctx context.Context, state *graphState) ([]*types.RSSItem, error) {
+		state.llmPool = w.llmPool
+		return dgraph(ctx, state)
+	}))
 
 	// 节点 8: 保存
 	_ = graph.AddLambdaNode("save", compose.InvokableLambda(func(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, error) {
-		return save(ctx, rssItems, w.cfg)
+		return save(ctx, rssItems, w.cfg, w.llmPool)
 	}))
 
 	// 编排
@@ -150,8 +163,8 @@ func (w *RSSWorkflow) StartCacheManager(ctx context.Context) {
 
 // New 创建工作流（兼容旧接口，推荐使用 NewRSSWorkflow）
 // Deprecated: 请使用 NewRSSWorkflow
-func New(ctx context.Context, cfg *types.RagConfig) (compose.Runnable[[]*types.RSSSource, []*types.RSSItem], error) {
-	workflow, err := NewRSSWorkflow(ctx, cfg)
+func New(ctx context.Context, cfg *types.RagConfig, llmPool *llm.LLMPool) (compose.Runnable[[]*types.RSSSource, []*types.RSSItem], error) {
+	workflow, err := NewRSSWorkflow(ctx, cfg, llmPool)
 	if err != nil {
 		return nil, err
 	}

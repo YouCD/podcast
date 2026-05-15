@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"text/template"
 
+	"podcast/internal/ai/llm"
 	"podcast/internal/ai/report/daily"
 	"podcast/internal/service"
 	"podcast/pkg/types"
@@ -29,11 +30,12 @@ type ReportResponse struct {
 type ReportsHandler struct {
 	reportService *service.ReportService
 	podcastCfg    *types.Podcast
+	llmPool       *llm.LLMPool
 }
 
 // NewReportsHandler 创建报告处理器
-func NewReportsHandler(reportService *service.ReportService, podcastCfg *types.Podcast) *ReportsHandler {
-	return &ReportsHandler{reportService: reportService, podcastCfg: podcastCfg}
+func NewReportsHandler(reportService *service.ReportService, podcastCfg *types.Podcast, llmPool *llm.LLMPool) *ReportsHandler {
+	return &ReportsHandler{reportService: reportService, podcastCfg: podcastCfg, llmPool: llmPool}
 }
 
 // GetReports 获取所有report列表，但不包含LLMResult
@@ -72,7 +74,7 @@ func (r *ReportsHandler) GetLLMResultByID(c *gin.Context) {
 	}
 	if rr.LLMResult == "" {
 		go func() {
-			c2, err := daily.New(c, r.podcastCfg)
+			c2, err := daily.New(c, r.podcastCfg, r.llmPool)
 			if err != nil {
 				ErrorWithMessage(c, "Report not found")
 				return
@@ -138,7 +140,7 @@ func (r *ReportsHandler) GenDailyReport(c *gin.Context) {
 	go func() {
 		id := c.Request.Context().Value("request_id").(string)
 		ctx := context.WithValue(context.Background(), "request_id", id)
-		dailyReport, err := daily.New(ctx, r.podcastCfg)
+		dailyReport, err := daily.New(ctx, r.podcastCfg, r.llmPool)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("创建每日报告处理器失败: %v", err.Error())
 			return

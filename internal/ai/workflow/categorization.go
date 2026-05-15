@@ -50,7 +50,7 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 			}
 			var count int
 		Retry:
-			category, llmInfo, err := common.RunModelGenerate(ctx, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 10)
+			category, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 10)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("categorization", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "error", err)
 				return

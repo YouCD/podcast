@@ -3,18 +3,18 @@ package workflow
 import (
 	"context"
 	"encoding/json"
-	"sync"
-	"time"
-
+	"podcast/internal/ai/llm"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	dgraphC "podcast/pkg/dgraph"
 	"podcast/pkg/types"
+	"sync"
+	"time"
 
 	"github.com/youcd/toolkit/log"
 )
 
-func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig) ([]*types.RSSItem, error) {
+func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, llmPool *llm.LLMPool) ([]*types.RSSItem, error) {
 	log.WithCtx(ctx).Info("开始保存到数据库")
 	var milvusData []*models.RssContent
 	var dbData []*models.RssContent
@@ -77,7 +77,7 @@ func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig) 
 		wg.Add(1) // 每个 goroutine 启动前增加计数
 		go func(item *models.RssContent) {
 			defer wg.Done() // 每个 goroutine 结束后减少计数
-			err := saveToMilvus(ctx, item, cfg)
+			err := saveToMilvus(ctx, llmPool, item, cfg)
 			if err != nil {
 				log.WithCtx(ctx).Errorf("保存RSS项目到 Milvus,item :%v  err: %v", item, err)
 			}

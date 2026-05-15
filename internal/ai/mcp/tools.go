@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
@@ -62,7 +61,7 @@ func GetCurrentTime(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResu
 func (m *MCPServer) RagSearch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query := request.GetString("query", "")
 
-	pool := llm.GetLLMPool()
+	pool := m.llmPool
 	llmInfo, err := pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("获取 LLM 信息失败：%w", err)

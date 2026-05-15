@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"podcast/config"
+	"podcast/internal/ai/llm"
 	"podcast/internal/database/models"
 
 	"github.com/youcd/toolkit/log"
@@ -24,7 +25,8 @@ func init() {
 }
 
 func TestNew(t *testing.T) {
-	c, err := New(context.Background())
+	pool := llm.NewLLMPool(config.Cfg.LLM)
+	c, err := New(context.Background(), pool)
 	if err != nil {
 		t.Fatal(err)
 	}

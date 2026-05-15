@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"podcast/internal/ai/common"
+	"podcast/internal/ai/llm"
 	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
 )
 
-func rewriteUserQuery(ctx context.Context, userQuery string) (*graphState, error) {
+func rewriteUserQuery(ctx context.Context, llmPool *llm.LLMPool, userQuery string) (*graphState, error) {
 	input := map[string]any{
 		"date":      time.Now().Format("2006-01-02") + " " + time.Now().Weekday().String(),
 		"userQuery": userQuery,
@@ -22,7 +23,7 @@ func rewriteUserQuery(ctx context.Context, userQuery string) (*graphState, error
 	if err != nil {
 		return nil, err
 	}
-	c, _, err := common.RunModelGenerate(ctx, "rewrite_user_query", msgs, openai.ChatCompletionResponseFormatTypeText, 5)
+	c, _, err := common.RunModelGenerate(ctx, llmPool, "rewrite_user_query", msgs, openai.ChatCompletionResponseFormatTypeText, 5)
 	if err != nil {
 		return nil, err
 	}

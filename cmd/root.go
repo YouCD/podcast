@@ -62,6 +62,12 @@ var rootCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
+		// 设置路由（依赖注入：cfg + db -> container -> router）
+		container, err := app.New(ctx, loadedCfg, loadedDB)
+		if err != nil {
+			log.WithCtx(cmd.Context()).Fatalf("failed to create container: %v", err)
+		}
+
 		// 启动Rss定时任务
 		log.WithCtx(cmd.Context()).Info("starting RSS cron job...")
 		go func() {
@@ -69,15 +75,10 @@ var rootCmd = &cobra.Command{
 				Milvus:     config.Cfg.Database.Milvus,
 				Embedding:  config.Cfg.Vector.Embedding,
 				DgraphHost: config.Cfg.Database.Dgraph,
-			}, config.Cfg.RSS)
+			}, config.Cfg.RSS, container.LLMPool)
 			// 启动报告定时任务
-			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast)
+			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast, container.LLMPool)
 		}()
-		// 设置路由（依赖注入：cfg + db -> container -> router）
-		container, err := app.New(ctx, loadedCfg, loadedDB)
-		if err != nil {
-			log.WithCtx(cmd.Context()).Fatalf("failed to create container: %v", err)
-		}
 		r := routes.SetupRouter(container)
 		// 在 goroutine 中启动服务
 		srv := &http.Server{

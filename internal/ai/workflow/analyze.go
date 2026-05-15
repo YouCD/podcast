@@ -53,7 +53,7 @@ func analyzeRss(ctx context.Context, state *graphState) (*graphState, error) {
 				log.WithCtx(ctx).Errorw("analyze_rss", "error", err)
 				return
 			}
-			llmResult, llmInfo, err := common.RunModelGenerate(ctx, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
+			llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
 			if err != nil {
 				log.WithCtx(ctx).Errorw("analyze_rss", "provider", llmInfo, "error", err)
 				return

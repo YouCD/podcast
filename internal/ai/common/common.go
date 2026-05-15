@@ -23,13 +23,11 @@ func ModelGenerate(ctx context.Context, model model.ToolCallingChatModel, input 
 	return msg.Content, nil
 }
 
-func RunModelGenerate(ctx context.Context, msgName string, input []*schema.Message, responseFormat openai.ChatCompletionResponseFormatType, attemptTotal int) (string, *types.LLMInfo, error) {
+func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, input []*schema.Message, responseFormat openai.ChatCompletionResponseFormatType, attemptTotal int) (string, *types.LLMInfo, error) {
 	var llm_info *types.LLMInfo
 	var lastErr error
 	var llmResult string
 	var success bool
-
-	pool := llm.GetLLMPool()
 
 	for attempt := 0; attempt < attemptTotal; attempt++ {
 		// 获取 LLM 实例

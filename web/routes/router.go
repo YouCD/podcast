@@ -34,7 +34,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 
 	rssHandler := handlers.NewRssHandler(container.RssSvc, container.Cfg.Global.ContentLen, container.Cfg.Database.Dgraph)
 	userHandler := handlers.NewUserHandler(container.UserSvc)
-	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast)
+	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast, container.LLMPool)
 	keyinfosHandler := handlers.NewKeyInfoHandler(container.KeyInfoSvc)
 	ragCfg := &types.RagConfig{
 		Milvus:     container.Cfg.Database.Milvus,
@@ -44,7 +44,8 @@ func SetupRouter(container *app.Container) *gin.Engine {
 	chatHandler := handlers.NewChatHandler(container.Chat, &agent.RAGAgentConfig{
 		MCP:       container.MCPConfig,
 		RagConfig: ragCfg,
-	})
+		LLMPool:   container.LLMPool,
+	}, container.LLMPool)
 	promptHandler := handlers.NewPromptHandler(container.PromptSvc)
 	templateHandler := handlers.NewTemplateHandler(container.TemplateSvc)
 
@@ -54,7 +55,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 		token = container.Cfg.Global.Token
 		logLevel = container.Cfg.Global.LogLevel
 	}
-	mcp.NewMCPServer(token, ragCfg, container.Cfg.MCPProxy).RunWithGin(r)
+	mcp.NewMCPServer(token, ragCfg, container.Cfg.MCPProxy, container.LLMPool).RunWithGin(r)
 	r.Use(StaticServe(dist.Dist))
 	r.Use(handlers.RequestIDMiddleware())
 	r.Use(handlers.CorsMiddleware())

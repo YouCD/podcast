@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"podcast/internal/ai/llm"
 	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino/compose"
@@ -17,13 +18,16 @@ type graphState struct {
 	userQuery    *types.UserQuery
 	contents     []*content
 	llmResult    string
+	llmPool      *llm.LLMPool
 }
 
-func buildWeekdayMonthWorkflow() *compose.Graph[string, *graphState] {
+func buildWeekdayMonthWorkflow(llmPool *llm.LLMPool) *compose.Graph[string, *graphState] {
 	graph := compose.NewGraph[string, *graphState]()
 
 	// 节点 1: 重写用户查询
-	_ = graph.AddLambdaNode("create_report", compose.InvokableLambda(rewriteUserQuery))
+	_ = graph.AddLambdaNode("create_report", compose.InvokableLambda(func(ctx context.Context, userQuery string) (*graphState, error) {
+		return rewriteUserQuery(ctx, llmPool, userQuery)
+	}))
 
 	// 节点 2: 获取RSS内容
 	_ = graph.AddLambdaNode("get_rss_content", compose.InvokableLambda(getRssContent))
@@ -41,9 +45,9 @@ func buildWeekdayMonthWorkflow() *compose.Graph[string, *graphState] {
 	return graph
 }
 
-func New(ctx context.Context) (compose.Runnable[string, *graphState], error) {
+func New(ctx context.Context, llmPool *llm.LLMPool) (compose.Runnable[string, *graphState], error) {
 	// 构建工作流
-	workflow := buildWeekdayMonthWorkflow()
+	workflow := buildWeekdayMonthWorkflow(llmPool)
 	// 编译（启用流式处理和回调）
 	runnable, err := workflow.Compile(ctx)
 	if err != nil {

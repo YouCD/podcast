@@ -65,7 +65,7 @@ func generatePodcastContent(ctx context.Context, state *graphState) (*graphState
 		return state, nil
 	}
 
-	llmResult, llmInfo, err := common.RunModelGenerate(ctx, "generatePodcastContent", format, openai.ChatCompletionResponseFormatTypeText, 5)
+	llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "generatePodcastContent", format, openai.ChatCompletionResponseFormatTypeText, 5)
 	if err != nil {
 		// LLM 调用失败时，记录错误但不中断工作流
 		log.WithCtx(ctx).Errorw("播客内容 LLM 生成失败", "error", err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"podcast/internal/ai/llm"
 	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
@@ -30,6 +31,7 @@ const (
 type RAGAgentConfig struct {
 	MCP       *MCPConfig
 	RagConfig *types.RagConfig
+	LLMPool   *llm.LLMPool
 	// Agent 模式，默认为 Plan-Execute
 	Mode AgentMode
 	// 最大重规划次数（仅 Plan-Execute 模式有效）
@@ -53,7 +55,7 @@ func NewAgent(ctx context.Context, cfg *RAGAgentConfig) (*RAGAgent, error) {
 	}
 
 	// 创建 ChatModel
-	m, err := NewRetryChatModel(ctx, 5, defaultBackoff, openai.ChatCompletionResponseFormatTypeText)
+	m, err := NewRetryChatModel(ctx, cfg.LLMPool, 5, defaultBackoff, openai.ChatCompletionResponseFormatTypeText)
 	if err != nil {
 		log.WithCtx(ctx).Error("Failed to init retry model", err)
 		return nil, err

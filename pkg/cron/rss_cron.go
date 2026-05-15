@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"podcast/pkg/types"
-
+	"podcast/internal/ai/llm"
 	"podcast/internal/ai/report/daily"
 	"podcast/internal/ai/report/weekday_month"
 	"podcast/internal/ai/workflow"
+	"podcast/pkg/types"
 
 	"github.com/robfig/cron/v3"
 	"github.com/youcd/toolkit/log"
@@ -19,12 +19,12 @@ import (
 var rssProcessingMutex sync.Mutex // 用于保证同一时间只有一个 RSS 处理任务运行
 
 // StartRSSCronJob 启动定时爬取 RSS 任务
-func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSSSource) {
+func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSSSource, llmPool *llm.LLMPool) {
 	// 获取应用配置中的 RSS 配置
 	c := cron.New()
 
 	// 创建处理器
-	workFlow, err := workflow.New(ctx, cfg)
+	workFlow, err := workflow.New(ctx, cfg, llmPool)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建处理器失败: %v", err)
 		return
@@ -78,9 +78,9 @@ func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSS
 }
 
 // StartReportJob 启动定时报告任务
-func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types.Podcast) {
+func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types.Podcast, llmPool *llm.LLMPool) {
 	c := cron.New()
-	report, err := weekday_month.New(ctx)
+	report, err := weekday_month.New(ctx, llmPool)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建周月报告处理器失败: %v", err)
 		return
@@ -103,7 +103,7 @@ func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types
 
 	// 添加每日报告任务，每天凌晨0点执行
 
-	dailyReport, err := daily.New(ctx, podcast)
+	dailyReport, err := daily.New(ctx, podcast, llmPool)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建每日报告处理器失败: %v", err)
 		return

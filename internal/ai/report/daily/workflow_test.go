@@ -23,12 +23,12 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	llm.NewLLMPool(config.Cfg.LLM)
 }
 
 func TestNew(t *testing.T) {
 	ctx := context.Background()
-	dailyReport, err := New(ctx, config.Cfg.Podcast)
+	pool := llm.NewLLMPool(config.Cfg.LLM)
+	dailyReport, err := New(ctx, config.Cfg.Podcast, pool)
 	if err != nil {
 		panic(err)
 	}
