@@ -21,10 +21,13 @@ func dgraph(ctx context.Context, state *graphState) ([]*types.RSSItem, error) {
 	const maxConcurrency = 2
 	sem := semaphore.NewWeighted(maxConcurrency)
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	var temp []*types.RSSItem
 	for _, item := range state.LlmResult {
 		if !analyzeDgraph(item.Categories) {
+			mu.Lock()
 			temp = append(temp, item)
+			mu.Unlock()
 			continue
 		}
 		wg.Add(1)
@@ -59,12 +62,14 @@ func dgraph(ctx context.Context, state *graphState) ([]*types.RSSItem, error) {
 				return
 			}
 			i.Dgraph = llmResult
+			mu.Lock()
 			temp = append(temp, i)
+			mu.Unlock()
 		}(item)
 	}
 	wg.Wait()
 
-	return temp, nil // 始终返回 nil，单个失败不阻塞整体流程
+	return temp, nil
 }
 
 var categories = []string{

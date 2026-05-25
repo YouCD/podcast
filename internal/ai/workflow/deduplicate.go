@@ -89,7 +89,6 @@ func (d *Deduplicator) embeddingDedup(ctx context.Context, rss []*types.RSSItem)
 				continue
 			}
 			vector = vectorData
-			cacheStore.Set(item.Title, vectorData, 24*time.Hour)
 		}
 
 		dedup, title, score, err := d.milvus.DedupSearch(ctx, vector, d.cfg.Milvus.DedupCollection)
@@ -100,13 +99,9 @@ func (d *Deduplicator) embeddingDedup(ctx context.Context, rss []*types.RSSItem)
 		if dedup {
 			log.WithCtx(ctx).Debugw("embedding_dedup", "MD5", item.MD5, "embedding", "hit", "emb_title", title, "src_title", item.Title, "score", score)
 		} else {
+			item.Vector = vector // 保存向量到 RSSItem，供后续使用
 			items = append(items, item)
-			err = d.milvus.Insert(ctx, item.Date, item.MD5, item.Title, vector, d.cfg.Milvus.DedupCollection)
-			if err != nil {
-				log.WithCtx(ctx).Errorw("embedding_dedup", "MD5", item.MD5, "title", item.Title, "err", err)
-			} else {
-				log.WithCtx(ctx).Debugw("embedding_dedup_insert", "MD5", item.MD5, "title", item.Title)
-			}
+			log.WithCtx(ctx).Debugw("embedding_dedup_pass", "MD5", item.MD5, "title", item.Title)
 			continue
 		}
 	}

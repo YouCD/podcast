@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 //nolint:interfacebloat
@@ -187,10 +188,8 @@ func (dao *rssContentDao) BatchCreate(ctx context.Context, posts ...*models.RssC
 	}
 
 	return dao.db.Model(&models.RssContent{}).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 单事务批量插入，减少事务提交开销
-		// 配合 MySQL 的 bulk_insert_buffer_size 参数
-		if err := tx.CreateInBatches(posts, 1000).Error; err != nil {
-			// 错误处理...
+		// 使用 INSERT IGNORE 忽略主键冲突，避免单条数据冲突导致整个批次失败
+		if err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).CreateInBatches(posts, 1000).Error; err != nil {
 			return err
 		}
 		return nil

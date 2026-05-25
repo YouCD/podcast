@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"podcast/internal/ai/llm"
+	"podcast/internal/ai/milvus"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	dgraphC "podcast/pkg/dgraph"
@@ -14,7 +15,7 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
-func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, llmPool *llm.LLMPool) ([]*types.RSSItem, error) {
+func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, llmPool *llm.LLMPool, milvusClient *milvus.Milvus) ([]*types.RSSItem, error) {
 	log.WithCtx(ctx).Info("开始保存到数据库")
 	var milvusData []*models.RssContent
 	var dbData []*models.RssContent
@@ -70,6 +71,20 @@ func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, 
 		log.WithCtx(ctx).Error("保存RSS项目到数据库失败: %v", err)
 	} else {
 		log.WithCtx(ctx).Info("数据库保存完成")
+		// 数据库保存成功后，写入缓存和DedupCollection
+		for _, item := range rssItems {
+			if len(item.Vector) > 0 {
+				cacheStore.Set(item.Title, item.Vector, 24*time.Hour)
+				log.WithCtx(ctx).Debugw("cache_set after save", "title", item.Title)
+				// 插入到DedupCollection用于语义去重
+				err := milvusClient.Insert(ctx, item.Date, item.MD5, item.Title, item.Vector, cfg.Milvus.DedupCollection)
+				if err != nil {
+					log.WithCtx(ctx).Errorw("dedup_collection_insert failed", "title", item.Title, "error", err)
+				} else {
+					log.WithCtx(ctx).Debugw("dedup_collection_insert success", "title", item.Title)
+				}
+			}
+		}
 	}
 
 	wg := sync.WaitGroup{}

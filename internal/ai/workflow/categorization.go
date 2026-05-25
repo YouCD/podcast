@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"podcast/internal/ai/common"
 	"podcast/pkg/types"
@@ -39,20 +40,38 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 				return
 			}
 			defer sem.Release(1)
-			msgs, err := newCategorizationTemplate(ctx).Format(ctx, map[string]any{
+
+			// 给每个分类任务添加超时
+			itemCtx, itemCancel := context.WithTimeout(ctx, 2*time.Minute)
+			defer itemCancel()
+
+			msgs, err := newCategorizationTemplate(itemCtx).Format(itemCtx, map[string]any{
 				"title":   i.Title,
 				"content": i.Content,
 			})
 			if err != nil {
-				log.WithCtx(ctx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "error", err)
+				log.WithCtx(itemCtx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "error", err)
+				mu.Lock()
 				state.Categorization[i] = "其他"
+				mu.Unlock()
 				return
 			}
-			var count int
+			var category string
+			var llmInfo *types.LLMInfo
+			var retryCount int
+			const maxRetry = 3
 		Retry:
-			category, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 10)
+			category, llmInfo, err = common.RunModelGenerate(itemCtx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 10)
 			if err != nil {
-				log.WithCtx(ctx).Errorw("categorization", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "error", err)
+				retryCount++
+				if retryCount < maxRetry {
+					log.WithCtx(itemCtx).Warnw("categorization retry", "provider", llmInfo, "md5", i.MD5, "attempt", retryCount, "error", err)
+					goto Retry
+				}
+				log.WithCtx(itemCtx).Errorw("categorization failed after retries", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "error", err)
+				mu.Lock()
+				state.Categorization[i] = "其他"
+				mu.Unlock()
 				return
 			}
 			if category == "低质量" {
@@ -60,16 +79,22 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 			}
 			runes := []rune(category)
 			if len(runes) > 10 {
-				count++
-				if count > 3 {
-					log.WithCtx(ctx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "category", category, "error", "too many retries")
-					category = "其他"
-					return
+				retryCount++
+				if retryCount < maxRetry {
+					log.WithCtx(itemCtx).Warnw("categorization category too long, retrying", "md5", i.MD5, "category", category, "attempt", retryCount)
+					goto Retry
 				}
-				goto Retry
+				log.WithCtx(itemCtx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "category", category, "error", "too many retries")
+				category = "其他"
+				mu.Lock()
+				state.Categorization[i] = category
+				mu.Unlock()
+				return
 			}
+			mu.Lock()
 			state.Categorization[i] = category
-			log.WithCtx(ctx).Debugw("categorization", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "category", category)
+			mu.Unlock()
+			log.WithCtx(itemCtx).Debugw("categorization", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "category", category)
 		}(item)
 	}
 

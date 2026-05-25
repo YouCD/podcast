@@ -20,4 +20,5 @@ type RSSItem struct {
 	MD5        string
 	LLMResult  string
 	Dgraph     string
+	Vector     []float32 // 向量数据，用于去重缓存
 }

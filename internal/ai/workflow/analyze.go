@@ -45,29 +45,44 @@ func analyzeRss(ctx context.Context, state *graphState) (*graphState, error) {
 				return
 			}
 			defer sem.Release(1)
-			msgs, err := newRssAnalyzeTemplate(ctx, item.Categories).Format(ctx, map[string]any{
+
+			// 给每个分析任务添加超时
+			itemCtx, itemCancel := context.WithTimeout(ctx, 2*time.Minute)
+			defer itemCancel()
+
+			msgs, err := newRssAnalyzeTemplate(itemCtx, item.Categories).Format(itemCtx, map[string]any{
 				"content": i.Content,
 				"date":    time.Now(),
 			})
 			if err != nil {
-				log.WithCtx(ctx).Errorw("analyze_rss", "error", err)
+				log.WithCtx(itemCtx).Errorw("analyze_rss", "error", err)
 				return
 			}
-			llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
+			var llmResult string
+			var llmInfo *types.LLMInfo
+			var retryCount int
+			const maxRetry = 3
+		Retry:
+			llmResult, llmInfo, err = common.RunModelGenerate(itemCtx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
 			if err != nil {
-				log.WithCtx(ctx).Errorw("analyze_rss", "provider", llmInfo, "error", err)
+				retryCount++
+				if retryCount < maxRetry {
+					log.WithCtx(itemCtx).Warnw("analyze_rss retry", "provider", llmInfo, "md5", i.MD5, "attempt", retryCount, "error", err)
+					goto Retry
+				}
+				log.WithCtx(itemCtx).Errorw("analyze_rss failed after retries", "provider", llmInfo, "md5", i.MD5, "error", err)
 				return
 			}
 
 			var result types.LLMResult
 			err = json.Unmarshal([]byte(llmResult), &result)
 			if err != nil {
-				log.WithCtx(ctx).Errorw("analyze_rss", "provider", llmInfo, "title", i.Title, "md5", i.MD5, "error", err)
+				log.WithCtx(itemCtx).Errorw("analyze_rss", "provider", llmInfo, "title", i.Title, "md5", i.MD5, "error", err)
 				return
 			}
 			marshal, _ := json.Marshal(result)
 			i.LLMResult = string(marshal)
-			log.WithCtx(ctx).Debugw("analyzeRss", "provider", llmInfo, "md5", i.MD5, "content", string(marshal))
+			log.WithCtx(itemCtx).Debugw("analyzeRss", "provider", llmInfo, "md5", i.MD5, "content", i.LLMResult)
 		}(item)
 	}
 	wg.Wait()
