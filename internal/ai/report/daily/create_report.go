@@ -20,7 +20,7 @@ func createReport(ctx context.Context, reportID int) (*graphState, error) {
 	}
 	if existingReport == nil { // 没有创建新的 报告
 		return &graphState{ // 创建新报告
-			report: &models.Report{
+			Report: &models.Report{
 				TimeArray: fmt.Sprintf("%s~%s", startDate.Format("15:04:05"), endDate.Format("15:04:05")),
 				Question:  question,
 			},
@@ -30,7 +30,7 @@ func createReport(ctx context.Context, reportID int) (*graphState, error) {
 		}, nil
 	}
 	return &graphState{
-		report:    existingReport,
+		Report:    existingReport,
 		startDate: startDate,
 		endDate:   endDate,
 	}, nil

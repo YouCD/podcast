@@ -15,7 +15,7 @@ func saveReport(ctx context.Context, state *graphState) (*graphState, error) {
 	if state.isNewReport {
 		log.WithCtx(ctx).Info("保存新报告")
 		// 保存到report表
-		err := reportDao.Create(ctx, state.report)
+		err := reportDao.Create(ctx, state.Report)
 		if err != nil {
 			return nil, fmt.Errorf("failed to save report: %w", err)
 		}
@@ -26,21 +26,21 @@ func saveReport(ctx context.Context, state *graphState) (*graphState, error) {
 	//nolint:modernize
 	updates := make(map[string]interface{})
 
-	if state.report.LLMResult != "" {
-		updates["llm_result"] = state.report.LLMResult
+	if state.Report.LLMResult != "" {
+		updates["llm_result"] = state.Report.LLMResult
 	}
-	if state.report.PodcastContent != "" {
-		updates["podcast_content"] = state.report.PodcastContent
+	if state.Report.PodcastContent != "" {
+		updates["podcast_content"] = state.Report.PodcastContent
 	}
-	if state.report.PodcastMP3URL != "" {
-		updates["podcast_mp3_url"] = state.report.PodcastMP3URL
+	if state.Report.PodcastMP3URL != "" {
+		updates["podcast_mp3_url"] = state.Report.PodcastMP3URL
 	}
-	if state.report.Content != "" {
-		updates["content"] = state.report.Content
+	if state.Report.Content != "" {
+		updates["content"] = state.Report.Content
 	}
-	updates["time_array"] = state.report.TimeArray
+	updates["time_array"] = state.Report.TimeArray
 
-	err := reportDao.UpdateByFields(ctx, dao.FieldKv{Field: "id", Value: state.report.ID}, updates)
+	err := reportDao.UpdateByFields(ctx, dao.FieldKv{Field: "id", Value: state.Report.ID}, updates)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update report: %w", err)
 	}

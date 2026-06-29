@@ -12,12 +12,12 @@ import (
 )
 
 func generateHTML(ctx context.Context, state *graphState) (*graphState, error) {
-	if state.report.LLMResult != "" {
+	if state.Report.LLMResult != "" {
 		log.WithCtx(ctx).Info("LLMResult 已存在")
 		return state, nil
 	}
 	log.WithCtx(ctx).Info("开始生成HTML")
-	format, err := newGenHtmlSummaryTemplate().Format(ctx, map[string]any{"content": state.report.Content})
+	format, err := newGenHtmlSummaryTemplate().Format(ctx, map[string]any{"content": state.Report.Content})
 	if err != nil {
 		return state, err
 	}
@@ -36,9 +36,9 @@ Retry:
 			goto Retry
 		}
 		// 如果解析失败，则将LLMResult置空
-		state.report.LLMResult = ""
+		state.Report.LLMResult = ""
 	} else {
-		state.report.LLMResult = q.LLMResult
+		state.Report.LLMResult = q.LLMResult
 	}
 	log.WithCtx(ctx).Info("生成HTML完成")
 	return state, nil

@@ -46,19 +46,19 @@ func parsePodcastJSON(jsonStr string) (string, error) {
 }
 
 func generatePodcastContent(ctx context.Context, state *graphState) (*graphState, error) {
-	if state.report.PodcastContent != "" {
+	if state.Report.PodcastContent != "" {
 		log.WithCtx(ctx).Info("播客内容已存在")
 		return state, nil
 	}
 	if state.isNewReport {
-		if state.report.Content == "" {
+		if state.Report.Content == "" {
 			// 内容为空时，记录警告但不返回错误，让工作流继续执行
 			log.WithCtx(ctx).Warn("播客内容生成跳过：报告内容为空")
 			return state, nil
 		}
 	}
 	log.WithCtx(ctx).Info("播客内容生成开始")
-	format, err := newGenPodcastSummaryTemplate().Format(ctx, map[string]any{"content": state.report.Content})
+	format, err := newGenPodcastSummaryTemplate().Format(ctx, map[string]any{"content": state.Report.Content})
 	if err != nil {
 		// 格式化失败时，记录错误但不中断工作流
 		log.WithCtx(ctx).Errorw("播客内容格式化失败", "error", err)
@@ -86,7 +86,7 @@ func generatePodcastContent(ctx context.Context, state *graphState) (*graphState
 		}
 	}
 
-	state.report.PodcastContent = podcastText
+	state.Report.PodcastContent = podcastText
 	log.WithCtx(ctx).Infow("播客内容生成结束", "llmInfo", llmInfo, "lines", len(strings.Split(podcastText, "\n")))
 	return state, nil
 }

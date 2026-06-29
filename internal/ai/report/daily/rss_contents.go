@@ -12,7 +12,7 @@ import (
 )
 
 func rssContents(ctx context.Context, state *graphState) (*graphState, error) {
-	if state.report.Content != "" {
+	if state.Report.Content != "" {
 		log.WithCtx(ctx).Info("Markdown 内容已存在")
 		return state, nil
 	}

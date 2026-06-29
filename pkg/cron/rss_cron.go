@@ -113,12 +113,25 @@ func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types
 		//nolint:all
 		ctx = log.SetRequestId(ctx)
 		log.WithCtx(ctx).Info("开始执行每日报告任务...")
-		_, err = dailyReport.Invoke(ctx, 0)
+		graphState, err := dailyReport.Invoke(ctx, 0)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("每日报告任务失败,持续时间：%s, err: %s", time.Since(now), err)
 			return
 		}
 		log.WithCtx(ctx).Infof("每日报告任务执行完成，持续时间：%s", time.Since(now))
+		if graphState.Report.PodcastMP3URL == "" {
+			for i:= range 3 {
+				graphState, err = dailyReport.Invoke(ctx, graphState.Report.ID)
+				if err != nil || graphState.Report.PodcastMP3URL == "" {
+					log.WithCtx(ctx).Errorf("第%d次重试, err: %s",i+1, err)
+					continue
+				}
+				if graphState.Report.PodcastMP3URL != "" {
+					break
+				}
+			}
+			return
+		}
 	})
 
 	c.Start()

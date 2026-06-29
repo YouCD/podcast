@@ -32,7 +32,7 @@ type PodcastConfig struct {
 }
 
 func generatePodcastVideo(ctx context.Context, cfg *types.Podcast, state *graphState) (*graphState, error) {
-	if state.report.PodcastContent == "" {
+	if state.Report.PodcastContent == "" {
 		log.WithCtx(ctx).Warnf("播客文本内容为空")
 		return state, nil
 	}
@@ -40,13 +40,13 @@ func generatePodcastVideo(ctx context.Context, cfg *types.Podcast, state *graphS
 
 	// 构造配置（依赖注入）
 
-	file, err := genPodcastVideo(ctx, cfg, state.report.PodcastContent)
+	file, err := genPodcastVideo(ctx, cfg, state.Report.PodcastContent)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("播客文件生成失败：%s", err)
 		return state, nil
 	}
 
-	state.report.PodcastMP3URL = file
+	state.Report.PodcastMP3URL = file
 	log.WithCtx(ctx).Info("播客音频生成完成")
 	return state, nil
 }

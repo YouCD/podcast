@@ -13,7 +13,7 @@ import (
 )
 
 func generateContent(ctx context.Context, state *graphState) (*graphState, error) {
-	if state.report.Content != "" {
+	if state.Report.Content != "" {
 		log.WithCtx(ctx).Info("Markdown 内容已存在")
 		return state, nil
 	}
@@ -54,7 +54,7 @@ Retry:
 	if len([]rune(llmResult)) < 100 {
 		return state, ErrContentIsToShort
 	}
-	state.report.Content = llmResult
+	state.Report.Content = llmResult
 	log.WithCtx(ctx).Infof("Markdown 内容生成完成")
 	return state, nil
 }
