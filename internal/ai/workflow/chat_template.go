@@ -25,7 +25,8 @@ func newCategorizationTemplate(ctx context.Context) prompt.ChatTemplate {
 		}
 	}
 
-	return prompt.FromMessages(schema.FString,
+	return prompt.FromMessages(
+		schema.FString,
 		schema.SystemMessage(usePrompt),
 		schema.UserMessage(`标题: {title}
 内容: {content}`),
@@ -44,7 +45,8 @@ func newRssAnalyzeTemplate(ctx context.Context, categories string) prompt.ChatTe
 		// item.Score = 80 // 设置分数,代表使用自定义提示词
 	}
 
-	return prompt.FromMessages(schema.GoTemplate,
+	return prompt.FromMessages(
+		schema.GoTemplate,
 		schema.SystemMessage(usePrompt),
 		schema.UserMessage(`发布时间：{{.date}}
 Rss内容：{{.content}}`),
@@ -53,7 +55,8 @@ Rss内容：{{.content}}`),
 
 // 创建清理模板
 func newCleanTemplate() prompt.ChatTemplate {
-	return prompt.FromMessages(schema.FString,
+	return prompt.FromMessages(
+		schema.FString,
 		schema.SystemMessage(PromptCleanContent),
 		schema.UserMessage(`Rss内容：
 {content}`),
@@ -76,7 +79,8 @@ func newRssDgraphTemplate(categories string) prompt.ChatTemplate {
 		usePrompt = PromptDgraphA
 	}
 	// 从prompt_dao获取分类为"llm_result"的提示词
-	return prompt.FromMessages(schema.GoTemplate,
+	return prompt.FromMessages(
+		schema.GoTemplate,
 		schema.SystemMessage(usePrompt),
 		schema.UserMessage(`发布时间：{{.date}}
 RSS标题：{{.title}}

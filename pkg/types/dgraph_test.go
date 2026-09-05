@@ -152,3 +152,120 @@ func TestNodeUnmarshalJSON_EdgeParsing(t *testing.T) {
 		t.Errorf("时间不匹配: 期望 '2024-03-15', 实际 '%s'", edge.Time)
 	}
 }
+
+func TestDgraphNodeUnmarshalJSON_Robust(t *testing.T) {
+	testCases := []struct {
+		name        string
+		jsonData    string
+		wantType    string
+		wantName    string
+		wantEdges   int
+		wantNested  int
+		shouldPanic bool
+	}{
+		{
+			name: "正常数组形式 dgraph.type",
+			jsonData: `{
+				"uid": "_:n1",
+				"name": "实体A",
+				"dgraph.type": ["企业"],
+				"研发": [{"uid":"_:n2","name":"产品B","dgraph.type":["技术"]}]
+			}`,
+			wantType:   "企业",
+			wantName:   "实体A",
+			wantEdges:  1,
+			wantNested: 1,
+		},
+		{
+			name: "dgraph.type 为单个字符串",
+			jsonData: `{
+				"uid": "_:n1",
+				"name": "实体A",
+				"dgraph.type": "企业"
+			}`,
+			wantType: "企业",
+			wantName: "实体A",
+		},
+		{
+			name: "dgraph.type 缺失",
+			jsonData: `{
+				"uid": "_:n1",
+				"name": "实体A"
+			}`,
+			wantType: "",
+			wantName: "实体A",
+		},
+		{
+			name: "dgraph.type 为 null",
+			jsonData: `{
+				"uid": "_:n1",
+				"name": "实体A",
+				"dgraph.type": null
+			}`,
+			wantType: "",
+			wantName: "实体A",
+		},
+		{
+			name: "子节点缺失 dgraph.type 不崩溃",
+			jsonData: `{
+				"uid": "_:n1",
+				"name": "实体A",
+				"dgraph.type": ["企业"],
+				"研发": [{"uid":"_:n2","name":"产品B"}]
+			}`,
+			wantType:  "企业",
+			wantName:  "实体A",
+			wantEdges: 1,
+		},
+		{
+			name: "空谓词数组被跳过",
+			jsonData: `{
+				"uid": "_:n1",
+				"name": "实体A",
+				"dgraph.type": ["企业"],
+				"研发": []
+			}`,
+			wantType:  "企业",
+			wantName:  "实体A",
+			wantEdges: 0,
+		},
+		{
+			name: "无 dgraph.type 且无谓词的空节点",
+			jsonData: `{
+				"uid": "_:empty",
+				"name": ""
+			}`,
+			wantType: "",
+			wantName: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("解析过程发生 panic: %v", r)
+				}
+			}()
+
+			var node DgraphNode
+			if err := json.Unmarshal([]byte(tc.jsonData), &node); err != nil {
+				t.Fatalf("解析失败: %v", err)
+			}
+			if node.DgraphType != tc.wantType {
+				t.Errorf("DgraphType 不匹配: 期望 %q, 实际 %q", tc.wantType, node.DgraphType)
+			}
+			if node.Name != tc.wantName {
+				t.Errorf("Name 不匹配: 期望 %q, 实际 %q", tc.wantName, node.Name)
+			}
+
+			var totalEdges int
+			for _, edges := range node.Predicates {
+				totalEdges += len(edges)
+			}
+			if totalEdges != tc.wantEdges {
+				t.Errorf("谓词边总数不匹配: 期望 %d, 实际 %d (谓词: %+v)", tc.wantEdges, totalEdges, node.Predicates)
+			}
+		})
+	}
+}

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/youcd/toolkit/log"
+	"go.uber.org/zap"
 )
 
 type MCPServer struct {
@@ -36,7 +38,9 @@ func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types
 }
 
 func (s *MCPServer) RunWithGin(router *gin.Engine) {
-	stream := server.NewStreamableHTTPServer(s.MCPServer, server.WithLogger(log.GetLogger()))
+	// 创建 slog.Logger 适配 zap
+	slogLogger := slog.New(&zapSlogAdapter{logger: log.GetLogger()})
+	stream := server.NewStreamableHTTPServer(s.MCPServer, server.WithStreamableHTTPLogger(slogLogger))
 	s.Init(s.MCPProxy)
 	// 将MCP处理程序注册到Gin路由器
 	router.Any("/mcp", func(c *gin.Context) {
@@ -103,4 +107,42 @@ func handler(client *client.Client, name string) server.ToolHandlerFunc {
 func (s *MCPServer) RegisterTool(tool mcp.Tool, handler server.ToolHandlerFunc) *MCPServer {
 	s.AddTool(tool, handler)
 	return s
+}
+
+// zapSlogAdapter 适配 zap.SugaredLogger 到 slog.Handler
+type zapSlogAdapter struct {
+	logger *zap.SugaredLogger
+}
+
+func (a *zapSlogAdapter) Enabled(_ context.Context, _ slog.Level) bool {
+	return true
+}
+
+func (a *zapSlogAdapter) Handle(_ context.Context, r slog.Record) error {
+	msg := r.Message
+	// 添加 attrs
+	r.Attrs(func(attr slog.Attr) bool {
+		msg += " " + attr.Key + "=" + attr.Value.String()
+		return true
+	})
+
+	switch r.Level {
+	case slog.LevelError:
+		a.logger.Error(msg)
+	case slog.LevelWarn:
+		a.logger.Warn(msg)
+	case slog.LevelInfo:
+		a.logger.Info(msg)
+	default:
+		a.logger.Debug(msg)
+	}
+	return nil
+}
+
+func (a *zapSlogAdapter) WithAttrs(_ []slog.Attr) slog.Handler {
+	return a
+}
+
+func (a *zapSlogAdapter) WithGroup(_ string) slog.Handler {
+	return a
 }

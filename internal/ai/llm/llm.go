@@ -33,7 +33,7 @@ type llmEntry struct {
 }
 
 // NewLLMPool 创建新的 LLM 连接池（推荐使用）
-func NewLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
+func NewLLMPool(llmConfigs []*types.LLMInfo, maxConcurrency ...int) *LLMPool {
 	entries := make([]*llmEntry, 0, len(llmConfigs))
 	limiters := make(map[string]*rate.Limiter)
 	seen := make(map[string]struct{})
@@ -58,11 +58,17 @@ func NewLLMPool(llmConfigs []*types.LLMInfo) *LLMPool {
 		entries[i], entries[j] = entries[j], entries[i]
 	})
 
+	// 确定并发度
+	concurrency := int64(len(entries) * 2) // 默认：2 * LLM 数量
+	if len(maxConcurrency) > 0 && maxConcurrency[0] > 0 {
+		concurrency = int64(maxConcurrency[0])
+	}
+
 	pool := &LLMPool{
 		entries:  entries,
 		limiters: limiters,
-		// 并发度设为 2*len(entries)，既充分利用又不打满
-		sem:       semaphore.NewWeighted(int64(len(entries) * 2)),
+		// 并发度控制
+		sem:       semaphore.NewWeighted(concurrency),
 		cooling:   &sync.Map{},
 		baseDelay: 4 * time.Hour, // 基础冷却 1h
 	}

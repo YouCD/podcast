@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"podcast/internal/ai/embedding"
@@ -12,11 +11,9 @@ import (
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
 
-	"podcast/internal/ai/rag"
 	"podcast/pkg/dgraph"
 
 	"github.com/cloudwego/eino-ext/components/embedding/dashscope"
-	milvus2Ret "github.com/cloudwego/eino-ext/components/retriever/milvus2"
 	einomcp "github.com/cloudwego/eino-ext/components/tool/mcp"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -26,31 +23,24 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
-// MilvusSearchTool 向量检索工具
-type MilvusSearchTool struct {
-	embedder  *dashscope.Embedder
-	retriever *milvus2Ret.Retriever
+// PgVectorSearchTool 向量检索工具
+type PgVectorSearchTool struct {
+	embedder *dashscope.Embedder
 }
 
-// NewMilvusSearchTool 创建向量检索工具
-func NewMilvusSearchTool(ctx context.Context, embedderCfg *types.Embedding, cfg *types.Milvus) (*MilvusSearchTool, error) {
+// NewPgVectorSearchTool 创建向量检索工具
+func NewPgVectorSearchTool(ctx context.Context, embedderCfg *types.Embedding) (*PgVectorSearchTool, error) {
 	embedder, err := embedding.NewEmbedder(ctx, embedderCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	retriever, err := rag.NewMilvusRetriever(ctx, embedder.Embedder, 10, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MilvusSearchTool{
-		embedder:  embedder.Embedder,
-		retriever: retriever,
+	return &PgVectorSearchTool{
+		embedder: embedder.Embedder,
 	}, nil
 }
 
-func (t *MilvusSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
+func (t *PgVectorSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	p := schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 		"query": {
 			Desc:     "检索查询语句，将自动转换为向量",
@@ -70,13 +60,13 @@ func (t *MilvusSearchTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
 	})
 
 	return &schema.ToolInfo{
-		Name:        "milvus_search",
+		Name:        "pgvector_search",
 		Desc:        "基于语义相似度检索历史知识库、文档、资料",
 		ParamsOneOf: p,
 	}, nil
 }
 
-func (t *MilvusSearchTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+func (t *PgVectorSearchTool) InvokableRun(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
 	var args struct {
 		Query      string `json:"query"`
 		Collection string `json:"collection"`
@@ -87,53 +77,26 @@ func (t *MilvusSearchTool) InvokableRun(ctx context.Context, argumentsInJSON str
 		return "", err
 	}
 
-	log.WithCtx(ctx).Infow("ToolCall", "name", "milvus_search", "args", args, "原因", args.Reason)
+	log.WithCtx(ctx).Infow("ToolCall", "name", "pgvector_search", "args", args, "原因", args.Reason)
 
-	docs, err := t.retriever.Retrieve(ctx, args.Query)
+	// TODO: 实现基于 PostgreSQL pgvector 的语义搜索
+	// 暂时使用数据库查询
+	rssContent, err := dao.NewRssContentDao(models.GetDb()).FindByMD5(ctx)
 	if err != nil {
-		log.WithCtx(ctx).Errorf("Query failed, retrieve err: %v\n", err)
+		log.WithCtx(ctx).Errorf("Query failed: %v\n", err)
 		return "", err
 	}
 
 	// 格式化结果
 	var buf strings.Builder
-
-	md5Map := make(map[string]bool)
-	for _, doc := range docs {
-		if a, ok := doc.MetaData["md5"]; ok {
-			md5Map[a.(string)] = true
-		}
+	for _, rss := range rssContent {
 		buf.WriteString(fmt.Sprintf(`Content: %s
 link: %s
 
-`, doc.String(), doc.MetaData["_source"]))
-		log.WithCtx(ctx).Debugw("ToolCall", "tool_name", "milvus_search", "Content", doc.String())
+`, rss.Content, rss.Link))
 	}
 
-	var md5s []string
-	for md5 := range md5Map {
-		md5s = append(md5s, md5)
-	}
-	log.WithCtx(ctx).Infow("ToolCall", "tool_name", "milvus_search", "content_len", len(md5s))
-
-	rssContent, err := dao.NewRssContentDao(models.GetDb()).FindByMD5(ctx, md5s...)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Query failed, find by md5 err: %v\n", err)
-		log.WithCtx(ctx).Infow("ToolCall", "tool_name", "milvus_search", "返回数据", "向量数据")
-		return buf.String(), nil
-	}
-
-	// 格式化结果
-	var rssBuf strings.Builder
-	for _, rss := range rssContent {
-		content := regexp.MustCompile(`\s+`).ReplaceAllString(strings.TrimSpace(rss.Content), " ")
-		rssBuf.WriteString(fmt.Sprintf(`Content: %s
-link: %s
-
-`, content, rss.Link))
-	}
-
-	return rssBuf.String(), nil
+	return buf.String(), nil
 }
 
 // DGraphQueryTool 关系查询工具
@@ -219,10 +182,10 @@ type MCPConfig struct {
 
 // ToolManager 工具管理器，管理所有 Agent 工具的生命周期
 type ToolManager struct {
-	tools  []tool.BaseTool
-	mcpCli *client.Client
-	dgraph *dgraph.Dgraph
-	milvus *MilvusSearchTool
+	tools    []tool.BaseTool
+	mcpCli   *client.Client
+	dgraph   *dgraph.Dgraph
+	pgVector *PgVectorSearchTool
 }
 
 // NewToolManager 创建工具管理器（推荐使用）
@@ -268,17 +231,18 @@ func NewToolManager(ctx context.Context, cfg *MCPConfig, ragConfig *types.RagCon
 	}
 	tm.dgraph = d
 
-	// 初始化 Milvus 检索工具
-	milvusTool, err := NewMilvusSearchTool(ctx, ragConfig.Embedding, ragConfig.Milvus)
+	// 初始化 PgVector 检索工具
+	pgVectorTool, err := NewPgVectorSearchTool(ctx, ragConfig.Embedding)
 	if err != nil {
-		return nil, fmt.Errorf("初始化 Milvus 检索工具失败：%w", err)
+		return nil, fmt.Errorf("初始化 PgVector 检索工具失败：%w", err)
 	}
-	tm.milvus = milvusTool
+	tm.pgVector = pgVectorTool
 
 	// 组装所有工具
-	tm.tools = append(mcpTools,
+	tm.tools = append(
+		mcpTools,
 		&DGraphQueryTool{d: d},
-		milvusTool,
+		pgVectorTool,
 	)
 
 	return tm, nil

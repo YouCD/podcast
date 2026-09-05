@@ -10,7 +10,7 @@ import (
 	"podcast/pkg/types"
 )
 
-func saveToMilvus(ctx context.Context, llmPool *llm.LLMPool, rss *models.RssContent, cfg *types.RagConfig) error {
+func saveToPgVector(ctx context.Context, llmPool *llm.LLMPool, rss *models.RssContent, cfg *types.RagConfig) error {
 	llmInfo, err := llmPool.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("get llm error: %w", err)

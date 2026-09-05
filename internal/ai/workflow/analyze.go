@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -21,41 +20,38 @@ func analyzeRss(ctx context.Context, state *graphState) (*graphState, error) {
 		return state, nil
 	}
 
-	const maxConcurrency = 4
-	sem := semaphore.NewWeighted(maxConcurrency)
+	log.WithCtx(ctx).Infof("[阶段5/7] 开始内容分析，共 %d 条", len(state.Categorization))
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
 	var rssItems []*types.RSSItem
 	for item, s := range state.Categorization {
 		item.Categories = s
 		rssItems = append(rssItems, item)
 	}
 
+	// 创建信号量控制并发
+	sem := semaphore.NewWeighted(state.maxConcurrency)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
 	for _, item := range rssItems {
 		wg.Add(1)
-		go func(i *types.RSSItem) {
-			defer wg.Done()
+		// 获取信号量
+		if err := sem.Acquire(ctx, 1); err != nil {
+			log.WithCtx(ctx).Errorw("analyze_rss: acquire semaphore failed", "error", err)
+			wg.Done()
+			continue
+		}
 
-			// 信号量控制并发
-			if err := sem.Acquire(ctx, 1); err != nil {
-				mu.Lock()
-				state.Errors = append(state.Errors, fmt.Errorf("sem acquire failed for %s: %w", i.Title, err))
-				mu.Unlock()
-				return
-			}
+		go func(item *types.RSSItem) {
+			defer wg.Done()
 			defer sem.Release(1)
 
-			// 给每个分析任务添加超时
-			itemCtx, itemCancel := context.WithTimeout(ctx, 2*time.Minute)
-			defer itemCancel()
-
-			msgs, err := newRssAnalyzeTemplate(itemCtx, item.Categories).Format(itemCtx, map[string]any{
-				"content": i.Content,
+			msgs, err := newRssAnalyzeTemplate(ctx, item.Categories).Format(ctx, map[string]any{
+				"content": item.Content,
 				"date":    time.Now(),
 			})
 			if err != nil {
-				log.WithCtx(itemCtx).Errorw("analyze_rss", "error", err)
+				log.WithCtx(ctx).Errorw("analyze_rss", "error", err)
 				return
 			}
 			var llmResult string
@@ -63,34 +59,40 @@ func analyzeRss(ctx context.Context, state *graphState) (*graphState, error) {
 			var retryCount int
 			const maxRetry = 3
 		Retry:
-			llmResult, llmInfo, err = common.RunModelGenerate(itemCtx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
+			llmResult, llmInfo, err = common.RunModelGenerate(ctx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5, state.llmTimeout)
 			if err != nil {
 				retryCount++
 				if retryCount < maxRetry {
-					log.WithCtx(itemCtx).Warnw("analyze_rss retry", "provider", llmInfo, "md5", i.MD5, "attempt", retryCount, "error", err)
+					log.WithCtx(ctx).Warnw("analyze_rss retry", "provider", llmInfo, "md5", item.MD5, "attempt", retryCount, "error", err)
 					goto Retry
 				}
-				log.WithCtx(itemCtx).Errorw("analyze_rss failed after retries", "provider", llmInfo, "md5", i.MD5, "error", err)
+				log.WithCtx(ctx).Errorw("analyze_rss failed after retries", "provider", llmInfo, "md5", item.MD5, "error", err)
 				return
 			}
 
 			var result types.LLMResult
-			err = json.Unmarshal([]byte(llmResult), &result)
+			err = json.Unmarshal([]byte(stripJSONFence(llmResult)), &result)
 			if err != nil {
-				log.WithCtx(itemCtx).Errorw("analyze_rss", "provider", llmInfo, "title", i.Title, "md5", i.MD5, "error", err)
+				log.WithCtx(ctx).Errorw("analyze_rss", "provider", llmInfo, "title", item.Title, "md5", item.MD5, "error", err)
 				return
 			}
 			marshal, _ := json.Marshal(result)
-			i.LLMResult = string(marshal)
-			log.WithCtx(itemCtx).Debugw("analyzeRss", "provider", llmInfo, "md5", i.MD5, "content", i.LLMResult)
+			item.LLMResult = string(marshal)
+			log.WithCtx(ctx).Debugw("analyzeRss", "provider", llmInfo, "md5", item.MD5, "content", item.LLMResult)
 		}(item)
 	}
+
+	// 等待所有任务完成
 	wg.Wait()
 
+	// 收集有结果的项目
 	for _, item := range rssItems {
 		if item.LLMResult != "" {
+			mu.Lock()
 			state.LlmResult = append(state.LlmResult, item)
+			mu.Unlock()
 		}
 	}
+	log.WithCtx(ctx).Infof("[阶段5/7] 分析完成，共 %d 条", len(state.LlmResult))
 	return state, nil // 始终返回 nil，单个失败不阻塞整体流程
 }

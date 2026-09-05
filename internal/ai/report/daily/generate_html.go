@@ -23,7 +23,7 @@ func generateHTML(ctx context.Context, state *graphState) (*graphState, error) {
 	}
 	var count int
 Retry:
-	llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "generateHTML", format, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
+	llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "generateHTML", format, openai.ChatCompletionResponseFormatTypeJSONObject, 5, 0)
 	if err != nil {
 		return state, err
 	}

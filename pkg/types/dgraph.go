@@ -36,9 +36,6 @@ type Edge struct {
 // UnmarshalJSON 为 Node 实现了自定义的 JSON 解析逻辑
 // 这使得我们可以将未知的顶级键（如 "投资"）解析到 Predicates map 中
 func (n *Node) UnmarshalJSON(data []byte) error {
-	// 定义一个别名，以避免在 UnmarshalJSON 中无限递归
-	type NodeAlias Node
-
 	// 1. 将所有 JSON 字段解析到一个 map 中
 	var allFields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &allFields); err != nil {
@@ -102,6 +99,9 @@ func (n *Node) UnmarshalJSON(data []byte) error {
 		var edges []Edge
 		if err := json.Unmarshal(rawEdges, &edges); err != nil {
 			return fmt.Errorf("failed to unmarshal edges for predicate %s: %w", predicateName, err)
+		}
+		if len(edges) == 0 {
+			continue // 跳过空谓词数组
 		}
 		n.Predicates[predicateName] = edges
 	}
@@ -178,9 +178,6 @@ type DgraphNode struct {
 }
 
 func (n *DgraphNode) UnmarshalJSON(data []byte) error {
-	// 定义一个别名，以避免在 UnmarshalJSON 中无限递归
-	type NodeAlias DgraphNode
-
 	// 1. 将所有 JSON 字段解析到一个 map 中
 	var allFields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &allFields); err != nil {
@@ -210,7 +207,11 @@ func (n *DgraphNode) UnmarshalJSON(data []byte) error {
 				return err
 			}
 		case "dgraph.type":
-			if err := json.Unmarshal(value, &aux.DgraphType); err != nil {
+			// dgraph 返回通常为数组，但也可能缺失、为 null 或单个字符串
+			var single string
+			if err := json.Unmarshal(value, &single); err == nil {
+				aux.DgraphType = []string{single}
+			} else if err := json.Unmarshal(value, &aux.DgraphType); err != nil {
 				return err
 			}
 		case "aliases":
@@ -226,7 +227,9 @@ func (n *DgraphNode) UnmarshalJSON(data []byte) error {
 	// 4. 将辅助结构体的值赋给当前 Node
 	n.Uid = aux.Uid
 	n.Name = aux.Name
-	n.DgraphType = aux.DgraphType[0]
+	if len(aux.DgraphType) > 0 {
+		n.DgraphType = aux.DgraphType[0]
+	}
 	n.Aliases = aux.Aliases
 
 	// 确保 Predicates map 已初始化
@@ -244,6 +247,9 @@ func (n *DgraphNode) UnmarshalJSON(data []byte) error {
 		var edges []DgraphNode
 		if err := json.Unmarshal(rawEdges, &edges); err != nil {
 			return fmt.Errorf("failed to unmarshal edges for predicate %s: %w", predicateName, err)
+		}
+		if len(edges) == 0 {
+			continue // 跳过空谓词数组
 		}
 		n.Predicates[predicateName] = edges
 	}

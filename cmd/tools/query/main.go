@@ -38,11 +38,13 @@ func main() {
 		return
 	}
 	ragCfg := &types.RagConfig{
-		Milvus: &types.Milvus{
-			Endpoint:      c.Database.Milvus.Endpoint,
-			APIKey:        c.Database.Milvus.APIKey,
-			DBName:        c.Database.Milvus.DBName,
-			RssCollection: c.Database.Milvus.RssCollection,
+		PgVector: &types.PgVector{
+			Host:          c.Database.PostgreSQL.Host,
+			Port:          c.Database.PostgreSQL.Port,
+			User:          c.Database.PostgreSQL.User,
+			Password:      c.Database.PostgreSQL.Password,
+			DBName:        c.Database.PostgreSQL.DBName,
+			RssCollection: c.Database.PostgreSQL.RssCollection,
 		},
 		Embedding: &types.Embedding{
 			APIKey: c.Vector.Embedding.APIKey,

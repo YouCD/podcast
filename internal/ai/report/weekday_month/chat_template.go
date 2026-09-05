@@ -20,7 +20,8 @@ func newGenQueryReWritingTemplate(ctx context.Context) prompt.ChatTemplate {
 		usePrompt = genre.Data
 	}
 
-	return prompt.FromMessages(schema.GoTemplate,
+	return prompt.FromMessages(
+		schema.GoTemplate,
 		schema.SystemMessage(usePrompt),
 		schema.UserMessage(`当前日期: {{.date}}
 用户提问: {{.userQuery}}`),
@@ -36,7 +37,8 @@ func newAnalysisTemplate(ctx context.Context, queryStr string) prompt.ChatTempla
 		usePrompt = genre.Data
 	}
 
-	return prompt.FromMessages(schema.GoTemplate,
+	return prompt.FromMessages(
+		schema.GoTemplate,
 		schema.SystemMessage(usePrompt),
 		schema.UserMessage(`用户提问: {{.userQuery}}
 当前的日期： {{.date}}

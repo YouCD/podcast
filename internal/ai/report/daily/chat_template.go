@@ -6,7 +6,8 @@ import (
 )
 
 func newGenMarkdownSummaryTemplate() prompt.ChatTemplate {
-	return prompt.FromMessages(schema.FString,
+	return prompt.FromMessages(
+		schema.FString,
 		schema.SystemMessage(PromptMarkdownSummary),
 		schema.UserMessage(`RSS 内容列表:
 {content}`),
@@ -14,7 +15,8 @@ func newGenMarkdownSummaryTemplate() prompt.ChatTemplate {
 }
 
 func newGenHtmlSummaryTemplate() prompt.ChatTemplate {
-	return prompt.FromMessages(schema.GoTemplate,
+	return prompt.FromMessages(
+		schema.GoTemplate,
 		schema.SystemMessage(PromptMarkdown2Html),
 		schema.UserMessage(`RSS 内容列表:
 {{.content}}`),
@@ -22,7 +24,8 @@ func newGenHtmlSummaryTemplate() prompt.ChatTemplate {
 }
 
 func newGenPodcastSummaryTemplate() prompt.ChatTemplate {
-	return prompt.FromMessages(schema.GoTemplate,
+	return prompt.FromMessages(
+		schema.GoTemplate,
 		schema.SystemMessage(PromptMarkdown2Podcast),
 		schema.UserMessage(`内容如下:
 {{.content}}`),

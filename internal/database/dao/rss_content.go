@@ -7,7 +7,6 @@ import (
 
 	"podcast/internal/database/models"
 
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -168,15 +167,6 @@ func (dao *rssContentDao) FindBy24H(ctx context.Context) ([]*models.RssContent, 
 func (dao *rssContentDao) Create(ctx context.Context, post *models.RssContent) error {
 	result := dao.db.Model(&models.RssContent{}).WithContext(ctx).Create(post)
 	if result.Error != nil {
-		//nolint:all
-		if mysqlErr, ok := result.Error.(*mysql.MySQLError); ok {
-			switch mysqlErr.Number {
-			case 1062: // MySQL中表示重复条目的代码
-				return gorm.ErrDuplicatedKey
-			default:
-				return fmt.Errorf("create 数据库错误: %w", result.Error)
-			}
-		}
 		return fmt.Errorf("create 数据库错误: %w", result.Error)
 	}
 	return nil
@@ -188,8 +178,8 @@ func (dao *rssContentDao) BatchCreate(ctx context.Context, posts ...*models.RssC
 	}
 
 	return dao.db.Model(&models.RssContent{}).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 使用 INSERT IGNORE 忽略主键冲突，避免单条数据冲突导致整个批次失败
-		if err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).CreateInBatches(posts, 1000).Error; err != nil {
+		// 使用 ON CONFLICT DO NOTHING 忽略主键冲突（PostgreSQL 语法）
+		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(posts, 1000).Error; err != nil {
 			return err
 		}
 		return nil

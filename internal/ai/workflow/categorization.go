@@ -2,9 +2,7 @@ package workflow
 
 import (
 	"context"
-	"fmt"
 	"sync"
-	"time"
 
 	"podcast/internal/ai/common"
 	"podcast/pkg/types"
@@ -19,40 +17,36 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 		return state, ErrRSSSourceNotContent
 	}
 
-	const maxConcurrency = 4
-	sem := semaphore.NewWeighted(maxConcurrency)
+	log.WithCtx(ctx).Infof("[阶段4/7] 开始分类处理，共 %d 条", len(state.UniqueItems))
 
-	// 改用 WaitGroup 替代 errgroup，避免单点失败导致整体崩溃
+	// 创建信号量控制并发
+	sem := semaphore.NewWeighted(state.maxConcurrency)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
 	for _, item := range state.UniqueItems {
 		wg.Add(1)
+		// 获取信号量
+		if err := sem.Acquire(ctx, 1); err != nil {
+			log.WithCtx(ctx).Errorw("categorization: acquire semaphore failed", "error", err)
+			wg.Done()
+			continue
+		}
 
-		go func(i *types.RSSItem) {
+		go func(item *types.RSSItem) {
 			defer wg.Done()
-
-			// 信号量控制并发
-			if err := sem.Acquire(ctx, 1); err != nil {
-				mu.Lock()
-				state.Errors = append(state.Errors, fmt.Errorf("sem acquire failed for %s: %w", i.Title, err))
-				mu.Unlock()
-				return
-			}
 			defer sem.Release(1)
 
-			// 给每个分类任务添加超时
-			itemCtx, itemCancel := context.WithTimeout(ctx, 2*time.Minute)
-			defer itemCancel()
+			log.WithCtx(ctx).Debugw("[阶段4/7] 开始分类", "md5", item.MD5, "title", item.Title, "source", item.Source)
 
-			msgs, err := newCategorizationTemplate(itemCtx).Format(itemCtx, map[string]any{
-				"title":   i.Title,
-				"content": i.Content,
+			msgs, err := newCategorizationTemplate(ctx).Format(ctx, map[string]any{
+				"title":   item.Title,
+				"content": item.Content,
 			})
 			if err != nil {
-				log.WithCtx(itemCtx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "error", err)
+				log.WithCtx(ctx).Errorw("categorization", "md5", item.MD5, "content", item.Content, "error", err)
 				mu.Lock()
-				state.Categorization[i] = "其他"
+				state.Categorization[item] = "其他"
 				mu.Unlock()
 				return
 			}
@@ -61,16 +55,16 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 			var retryCount int
 			const maxRetry = 3
 		Retry:
-			category, llmInfo, err = common.RunModelGenerate(itemCtx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 10)
+			category, llmInfo, err = common.RunModelGenerate(ctx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 3, state.llmTimeout)
 			if err != nil {
 				retryCount++
 				if retryCount < maxRetry {
-					log.WithCtx(itemCtx).Warnw("categorization retry", "provider", llmInfo, "md5", i.MD5, "attempt", retryCount, "error", err)
+					log.WithCtx(ctx).Warnw("categorization retry", "provider", llmInfo, "md5", item.MD5, "attempt", retryCount, "error", err)
 					goto Retry
 				}
-				log.WithCtx(itemCtx).Errorw("categorization failed after retries", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "error", err)
+				log.WithCtx(ctx).Errorw("categorization failed after retries", "provider", llmInfo, "md5", item.MD5, "content", item.Content, "error", err)
 				mu.Lock()
-				state.Categorization[i] = "其他"
+				state.Categorization[item] = "其他"
 				mu.Unlock()
 				return
 			}
@@ -78,26 +72,25 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 				category = "low_quality"
 			}
 			runes := []rune(category)
-			if len(runes) > 10 {
+			if category != "low_quality" && len(runes) > 10 {
 				retryCount++
 				if retryCount < maxRetry {
-					log.WithCtx(itemCtx).Warnw("categorization category too long, retrying", "md5", i.MD5, "category", category, "attempt", retryCount)
+					log.WithCtx(ctx).Warnw("categorization category too long, retrying", "md5", item.MD5, "category", category, "attempt", retryCount, "category", category)
 					goto Retry
 				}
-				log.WithCtx(itemCtx).Errorw("categorization", "md5", i.MD5, "content", i.Content, "category", category, "error", "too many retries")
+				log.WithCtx(ctx).Errorw("categorization", "md5", item.MD5, "content", item.Content, "category", category, "error", "too many retries")
 				category = "其他"
-				mu.Lock()
-				state.Categorization[i] = category
-				mu.Unlock()
-				return
 			}
 			mu.Lock()
-			state.Categorization[i] = category
+			state.Categorization[item] = category
 			mu.Unlock()
-			log.WithCtx(itemCtx).Debugw("categorization", "provider", llmInfo, "md5", i.MD5, "content", i.Content, "category", category)
+			log.WithCtx(ctx).Debugw("categorization", "provider", llmInfo, "md5", item.MD5, "content", item.Content, "category", category)
 		}(item)
 	}
 
+	// 等待所有任务完成
 	wg.Wait()
+
+	log.WithCtx(ctx).Infof("[阶段4/7] 分类完成，共 %d 条", len(state.Categorization))
 	return state, nil // 始终返回 nil，单个失败不阻塞整体流程
 }

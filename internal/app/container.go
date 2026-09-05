@@ -8,7 +8,7 @@ import (
 	"podcast/internal/ai/agent"
 	"podcast/internal/ai/embedding"
 	"podcast/internal/ai/llm"
-	"podcast/internal/ai/milvus"
+	"podcast/internal/ai/pgvector"
 	"podcast/internal/database/dao"
 	"podcast/internal/service"
 
@@ -34,7 +34,7 @@ type Container struct {
 	// AI 组件
 	Embedding *embedding.Embedder
 	LLMPool   *llm.LLMPool
-	Milvus    *milvus.Milvus
+	PgVector  *pgvector.PgVector
 
 	// RAG Agent 配置
 	MCPConfig *agent.MCPConfig
@@ -77,9 +77,17 @@ func New(ctx context.Context, cfg *config.Config, db *gorm.DB) (*Container, erro
 	c.Embedding = emb
 
 	// 转换 LLM 配置
-	c.LLMPool = llm.NewLLMPool(cfg.LLM)
+	maxConcurrency := 0
+	if cfg.Global != nil {
+		maxConcurrency = cfg.Global.MaxConcurrency
+	}
+	if maxConcurrency > 0 {
+		c.LLMPool = llm.NewLLMPool(cfg.LLM, maxConcurrency)
+	} else {
+		c.LLMPool = llm.NewLLMPool(cfg.LLM)
+	}
 
-	c.Milvus = milvus.NewMilvus(context.Background(), cfg.Database.Milvus)
+	c.PgVector = pgvector.NewPgVector(context.Background(), cfg.Database.PostgreSQL.ToPgVector())
 	c.MCPConfig = &agent.MCPConfig{
 		HostPort: cfg.Global.HostPort,
 		Token:    cfg.Global.Token,
@@ -91,9 +99,9 @@ func New(ctx context.Context, cfg *config.Config, db *gorm.DB) (*Container, erro
 func (c *Container) Close(ctx context.Context) error {
 	var errs []error
 
-	// 关闭 Milvus 连接
-	if c.Milvus != nil {
-		c.Milvus.Close(ctx)
+	// 关闭 PgVector 连接
+	if c.PgVector != nil {
+		c.PgVector.Close(ctx)
 	}
 
 	// 关闭数据库连接

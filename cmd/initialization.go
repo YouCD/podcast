@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"podcast/config"
-	"podcast/internal/ai/milvus"
+	"podcast/internal/ai/pgvector"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 	"podcast/pkg/dgraph"
@@ -37,9 +37,14 @@ var initializationCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		log.WithCtx(ctx).Info("[初始化] 开始初始化系统")
+
 		// 初始化表结构（使用已注入的 db）
+		log.WithCtx(ctx).Info("[初始化] 创建数据库表结构")
 		models.InitializationTable(ctx, loadedDB)
-		//  初始化用户
+
+		// 初始化用户
+		log.WithCtx(ctx).Info("[初始化] 创建默认用户")
 		userDao := dao.NewUserDao(loadedDB)
 		err := userDao.Create(ctx, &models.User{
 			Name:     "admin",
@@ -48,22 +53,28 @@ var initializationCmd = &cobra.Command{
 		if err != nil {
 			log.WithCtx(ctx).Error(err)
 		}
-		//  初始化dGraph
+
+		// 初始化dGraph
+		log.WithCtx(ctx).Info("[初始化] 连接 DGraph 图数据库")
 		initDgraph(ctx, config.Cfg.Database.Dgraph)
-		//  初始化Milvus
-		initMilvus(ctx)
+
+		// 初始化PgVector
+		log.WithCtx(ctx).Info("[初始化] 连接 PostgreSQL 并创建向量表")
+		initPgVector(ctx)
+
+		log.WithCtx(ctx).Info("[初始化] 系统初始化完成")
 	},
 }
 
-func initMilvus(ctx context.Context) {
-	m := milvus.NewMilvus(ctx, config.Cfg.Database.Milvus)
-	defer m.Close(ctx)
-	err := m.CreateDedupCollection(ctx, loadedCfg.Database.Milvus.DedupCollection)
+func initPgVector(ctx context.Context) {
+	p := pgvector.NewPgVector(ctx, config.Cfg.Database.PostgreSQL.ToPgVector())
+	defer p.Close(ctx)
+	err := p.CreateCollection(ctx, loadedCfg.Database.PostgreSQL.DedupCollection)
 	if err != nil {
 		log.WithCtx(ctx).Error(err)
 		return
 	}
-	log.WithCtx(ctx).Info("初始化Milvus成功")
+	log.WithCtx(ctx).Info("初始化PgVector成功")
 }
 
 func initDgraph(ctx context.Context, host string) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"sync"
 	"time"
 
 	"podcast/pkg/types"
@@ -17,21 +16,16 @@ import (
 func fetchFeeds(ctx context.Context, resource []*types.RSSSource) (*graphState, error) {
 	state := &graphState{}
 	state.Categorization = make(map[*types.RSSItem]string)
-	var wg sync.WaitGroup
-	log.WithCtx(ctx).Info("开始抓取RSS源")
+	log.WithCtx(ctx).Info("[阶段1/7] 开始抓取RSS源")
 	for _, rss := range resource {
-		wg.Add(1)
-		go func(rss *types.RSSSource) {
-			defer wg.Done()
-			items, err := crawlAndParseRSS(ctx, rss)
-			if err != nil {
-				state.Errors = append(state.Errors, err)
-				return
-			}
-			state.RawItems = append(state.RawItems, items...)
-		}(rss)
+		items, err := crawlAndParseRSS(ctx, rss)
+		if err != nil {
+			state.Errors = append(state.Errors, err)
+			continue
+		}
+		state.RawItems = append(state.RawItems, items...)
 	}
-	wg.Wait()
+	log.WithCtx(ctx).Infof("[阶段1/7] 抓取完成，共 %d 条", len(state.RawItems))
 	return state, nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"podcast/internal/ai/embedding"
-	"podcast/internal/ai/milvus"
+	"podcast/internal/ai/pgvector"
 	"podcast/internal/database/dao"
 	"podcast/pkg/types"
 
@@ -20,23 +20,23 @@ var cacheStore = cache.New(24*time.Hour, 24*time.Hour)
 type Deduplicator struct {
 	rssDao   dao.RssContentDao
 	embedder *embedding.Embedder
-	milvus   *milvus.Milvus
+	pgVector *pgvector.PgVector
 	cfg      *types.RagConfig
 }
 
 // NewDeduplicator 创建去重处理器
-func NewDeduplicator(rssDao dao.RssContentDao, embedder *embedding.Embedder, milvusClient *milvus.Milvus, cfg *types.RagConfig) *Deduplicator {
+func NewDeduplicator(rssDao dao.RssContentDao, embedder *embedding.Embedder, pgVectorClient *pgvector.PgVector, cfg *types.RagConfig) *Deduplicator {
 	return &Deduplicator{
 		rssDao:   rssDao,
 		embedder: embedder,
-		milvus:   milvusClient,
+		pgVector: pgVectorClient,
 		cfg:      cfg,
 	}
 }
 
 // deduplicate 去重处理（使用依赖注入）
 func (d *Deduplicator) deduplicate(ctx context.Context, state *graphState) (*graphState, error) {
-	log.WithCtx(ctx).Info("开始去重处理")
+	log.WithCtx(ctx).Info("[阶段3/7] 开始去重处理")
 	output := []*types.RSSItem{}
 
 	for _, item := range state.Filtered {
@@ -71,6 +71,7 @@ func (d *Deduplicator) deduplicate(ctx context.Context, state *graphState) (*gra
 	log.WithCtx(ctx).Infow("deduplicate_embedding_count", "in_embedding", len(dedup))
 
 	state.UniqueItems = dedup
+	log.WithCtx(ctx).Infof("[阶段3/7] 去重完成，共 %d 条", len(dedup))
 	return state, nil
 }
 
@@ -91,7 +92,7 @@ func (d *Deduplicator) embeddingDedup(ctx context.Context, rss []*types.RSSItem)
 			vector = vectorData
 		}
 
-		dedup, title, score, err := d.milvus.DedupSearch(ctx, vector, d.cfg.Milvus.DedupCollection)
+		dedup, title, score, err := d.pgVector.DedupSearch(ctx, vector, d.cfg.PgVector.DedupCollection)
 		if err != nil {
 			log.WithCtx(ctx).Errorw("dedup", "err", err)
 			continue

@@ -37,7 +37,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast, container.LLMPool)
 	keyinfosHandler := handlers.NewKeyInfoHandler(container.KeyInfoSvc)
 	ragCfg := &types.RagConfig{
-		Milvus:     container.Cfg.Database.Milvus,
+		PgVector:   container.Cfg.Database.PostgreSQL.ToPgVector(),
 		Embedding:  container.Cfg.Vector.Embedding,
 		DgraphHost: container.Cfg.Database.Dgraph,
 	}

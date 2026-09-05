@@ -23,7 +23,7 @@ func rewriteUserQuery(ctx context.Context, llmPool *llm.LLMPool, userQuery strin
 	if err != nil {
 		return nil, err
 	}
-	c, _, err := common.RunModelGenerate(ctx, llmPool, "rewrite_user_query", msgs, openai.ChatCompletionResponseFormatTypeText, 5)
+	c, _, err := common.RunModelGenerate(ctx, llmPool, "rewrite_user_query", msgs, openai.ChatCompletionResponseFormatTypeText, 5, 0)
 	if err != nil {
 		return nil, err
 	}

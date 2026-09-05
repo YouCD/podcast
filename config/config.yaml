@@ -1,22 +1,13 @@
 database:
-  mysql:
-    host: "podcast_mysql"
-    port: 3306
-    user: "root"
-    password: "P@ssw0rd"
-    dbname: "rss"
+  # PostgreSQL 数据库（同时用于应用数据和向量数据）
+  postgresql:
+    host: "localhost"
+    port: 5432
+    user: "postgres"
+    password: "postgres"
+    dbName: "podcast"
   # 图数据库
-  dgraph: podcast-dgraph:9080
-  # 向量数据库
-  milvus:
-    # 注册地址 https://cloud.zilliz.com/  免费5G空间
-    endpoint: "https://in03-549fdb60364f200.serverless.aws-eu-central-1.cloud.zilliz.com"
-    apiKey: "apiKey"
-    dbName: "db_549fdb60364f200"
-    rssCollection: "rss_20260128"
-    dedupCollection: "dedup_title"
-    dimension: 1024
-    score: 0.78
+  dgraph: localhost:9080
 # 1. 访问 [ModelScope](https://modelscope.cn/my/access/token) 官网。   `2000/每日`免费
 llm:
   - apiKey: "token"
@@ -49,6 +40,8 @@ global:
   contentLen: 1400
   token: "token"
   podcastDir: /tmp/podcast
+  maxConcurrency: 0  # LLM 最大并发数，0 表示自动（2 * LLM 数量）
+  llmTimeout: 120    # 单条 LLM 分析超时（秒），0 表示默认 120 秒
 report:
   - schedule: "0 0 * * 1"
     topic: "本周AI发展趋势"

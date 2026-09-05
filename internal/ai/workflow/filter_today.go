@@ -11,7 +11,7 @@ import (
 
 // filterToday 筛选今日内容
 func filterToday(ctx context.Context, state *graphState) (*graphState, error) {
-	log.WithCtx(ctx).Info("开始筛选今日内容")
+	log.WithCtx(ctx).Info("[阶段2/7] 开始筛选今日内容")
 	today := time.Now().Truncate(24 * time.Hour)
 	var output []*types.RSSItem
 	for _, item := range state.RawItems {
@@ -22,6 +22,6 @@ func filterToday(ctx context.Context, state *graphState) (*graphState, error) {
 		}
 	}
 	state.Filtered = output
-	log.WithCtx(ctx).Info("今日内容筛选完成", "共", len(output), "条")
+	log.WithCtx(ctx).Infof("[阶段2/7] 筛选完成，共 %d 条", len(output))
 	return state, nil
 }

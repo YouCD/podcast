@@ -40,4 +40,5 @@ web/dist/assets
 web/dist/index.html
 frontend/dist
 frontend/node_modules
-config.local.yaml
+config/config.local.yaml
+.kilocode

@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	search24HRss = mcp.NewTool("news_search", mcp.WithDescription("功能：获取24H的新闻内容"),
+	search24HRss = mcp.NewTool(
+		"news_search", mcp.WithDescription("功能：获取24H的新闻内容"),
 		mcp.WithString("categories", mcp.Description("新闻的类别")),
 	)
 	rssCategories  = mcp.NewTool("news_categories", mcp.WithDescription("功能：获取新闻类别"))

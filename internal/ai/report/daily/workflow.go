@@ -15,8 +15,8 @@ import (
 
 // graphState 全局状态（用于节点间共享数据）
 type graphState struct {
-	Report    *models.Report
-	startDate time.Time
+	Report      *models.Report
+	startDate   time.Time
 	endDate     time.Time
 	rssContents []*models.RssContent
 	isNewReport bool

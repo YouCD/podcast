@@ -191,7 +191,8 @@ func (m *McpProxy) GetClientByNme(name string) (*client.Client, error) {
 }
 
 func newClient(ctx context.Context, mcpInfo *types.Mcp) (*client.Client, error) {
-	tr, err := transport.NewStreamableHTTP(mcpInfo.URL,
+	tr, err := transport.NewStreamableHTTP(
+		mcpInfo.URL,
 		transport.WithHTTPHeaders(mcpInfo.Headers),
 	)
 	if err != nil {

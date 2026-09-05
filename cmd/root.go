@@ -72,10 +72,11 @@ var rootCmd = &cobra.Command{
 		log.WithCtx(cmd.Context()).Info("starting RSS cron job...")
 		go func() {
 			cron.StartRSSCronJob(ctx, &types.RagConfig{
-				Milvus:     config.Cfg.Database.Milvus,
+				PgVector:   config.Cfg.Database.PostgreSQL.ToPgVector(),
 				Embedding:  config.Cfg.Vector.Embedding,
 				DgraphHost: config.Cfg.Database.Dgraph,
-			}, config.Cfg.RSS, container.LLMPool)
+				LLMTimeout: time.Duration(config.Cfg.Global.LLMTimeout) * time.Second,
+			}, config.Cfg.RSS, container.LLMPool, config.Cfg.Global.MaxConcurrency)
 			// 启动报告定时任务
 			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast, container.LLMPool)
 		}()
@@ -86,7 +87,7 @@ var rootCmd = &cobra.Command{
 			Handler: r,
 		}
 		go func() {
-			log.WithCtx(cmd.Context()).Infof("server listening at: %s", srv.Addr)
+			log.WithCtx(cmd.Context()).Infof("server listening at: http://%s", srv.Addr)
 			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.WithCtx(cmd.Context()).Panicf("listen: %s\n", err)
 			}

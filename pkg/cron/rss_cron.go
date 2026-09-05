@@ -19,12 +19,12 @@ import (
 var rssProcessingMutex sync.Mutex // 用于保证同一时间只有一个 RSS 处理任务运行
 
 // StartRSSCronJob 启动定时爬取 RSS 任务
-func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSSSource, llmPool *llm.LLMPool) {
+func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSSSource, llmPool *llm.LLMPool, maxConcurrency int) {
 	// 获取应用配置中的 RSS 配置
 	c := cron.New()
 
 	// 创建处理器
-	workFlow, err := workflow.New(ctx, cfg, llmPool)
+	workFlow, err := workflow.New(ctx, cfg, llmPool, int64(maxConcurrency))
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建处理器失败: %v", err)
 		return
@@ -120,10 +120,10 @@ func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types
 		}
 		log.WithCtx(ctx).Infof("每日报告任务执行完成，持续时间：%s", time.Since(now))
 		if graphState.Report.PodcastMP3URL == "" {
-			for i:= range 3 {
+			for i := range 3 {
 				graphState, err = dailyReport.Invoke(ctx, graphState.Report.ID)
 				if err != nil || graphState.Report.PodcastMP3URL == "" {
-					log.WithCtx(ctx).Errorf("第%d次重试, err: %s",i+1, err)
+					log.WithCtx(ctx).Errorf("第%d次重试, err: %s", i+1, err)
 					continue
 				}
 				if graphState.Report.PodcastMP3URL != "" {

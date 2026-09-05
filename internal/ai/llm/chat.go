@@ -13,10 +13,12 @@ import (
 )
 
 func ConversationTitle(ctx context.Context, llm *types.LLMInfo, msg []*types.MessageInfo) (string, error) {
+	enableThinking := false // 对话标题生成短任务，关闭深度思考提速
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
-		BaseURL: llm.BaseURL,
-		APIKey:  llm.ApiKey,
-		Model:   llm.Model,
+		BaseURL:        llm.BaseURL,
+		APIKey:         llm.ApiKey,
+		Model:          llm.Model,
+		EnableThinking: &enableThinking,
 	})
 	if err != nil {
 		return "", fmt.Errorf("NewChatModel error: %w", err)

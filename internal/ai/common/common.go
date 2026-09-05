@@ -23,7 +23,7 @@ func ModelGenerate(ctx context.Context, model model.ToolCallingChatModel, input 
 	return msg.Content, nil
 }
 
-func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, input []*schema.Message, responseFormat openai.ChatCompletionResponseFormatType, attemptTotal int) (string, *types.LLMInfo, error) {
+func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, input []*schema.Message, responseFormat openai.ChatCompletionResponseFormatType, attemptTotal int, timeout time.Duration) (string, *types.LLMInfo, error) {
 	var llm_info *types.LLMInfo
 	var lastErr error
 	var llmResult string
@@ -61,7 +61,15 @@ func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, in
 			continue
 		}
 
-		msg, err := chatModel.Generate(ctx, input)
+		generateCtx := ctx
+		var generateCancel context.CancelFunc
+		if timeout > 0 {
+			generateCtx, generateCancel = context.WithTimeout(ctx, timeout)
+		}
+		msg, err := chatModel.Generate(generateCtx, input)
+		if generateCancel != nil {
+			generateCancel()
+		}
 		// 成功
 		if err == nil {
 			success = true
@@ -72,14 +80,17 @@ func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, in
 
 		pool.Put(ctx, llmInfo) // 归还实例（即使出错）
 
-		log.WithCtx(ctx).Errorw(msgName,
+		log.WithCtx(ctx).Errorw(
+			msgName,
 			"provider", llmInfo,
 			"attempt", attempt+1,
 			"err", err,
 		)
 
-		// 标记该 provider 进入冷却期
-		pool.MarkRateLimited(ctx, llmInfo)
+		// 仅在真实 429 限流时标记冷却，其他错误（超时、网络等）不标记
+		if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "rate_limit") {
+			pool.MarkRateLimited(ctx, llmInfo)
+		}
 		lastErr = err
 		continue // 继续循环，会自动获取其他 provider
 	}

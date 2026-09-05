@@ -1,58 +1,73 @@
 package embedding
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"strings"
 	"testing"
 
-	"podcast/config"
-	"podcast/internal/ai/milvus"
+	"podcast/pkg/types"
 )
 
-func init() {
-	config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.yaml")
-	// models.Init()
+func TestNewEmbedder_ProviderDetection(t *testing.T) {
+	cases := []struct {
+		name    string
+		cfg     *types.Embedding
+		wantErr bool
+	}{
+		{
+			name: "ollama provider 显式指定",
+			cfg:  &types.Embedding{Provider: "ollama", BaseURL: "http://192.168.1.188:11434", Model: "qwen3-embedding:0.6b", Dimension: 1024},
+		},
+		{
+			name: "非 dashscope baseURL 自动识别为 ollama",
+			cfg:  &types.Embedding{BaseURL: "http://192.168.1.188:11434", Model: "qwen3-embedding:0.6b", Dimension: 1024},
+		},
+		{
+			name: "ollama 缺少 baseURL 报错",
+			cfg:  &types.Embedding{Provider: "ollama", Model: "qwen3-embedding:0.6b"},
+			wantErr: true,
+		},
+		{
+			name: "dashscope baseURL 识别为 dashscope",
+			cfg:  &types.Embedding{APIKey: "sk-test", BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Model: "text-embedding-v4", Dimension: 1024},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e, err := NewEmbedder(context.Background(), tc.cfg)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("期望报错，实际 nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("NewEmbedder 失败: %v", err)
+			}
+			if e == nil {
+				t.Fatal("返回 nil embedder")
+			}
+		})
+	}
 }
 
-func Test_embedding(t *testing.T) {
-	//Title := "叮咚买菜被美团收购， 即时零售进入巨头争战期"
-	//embedding, err := New(context.Background(), Title)
-	//if err != nil {
-	//	t.Error(err)
-	//}
-	//t.Log(embedding)
-
-	m := milvus.New(context.Background())
-
-	dedup, err := m.Query(context.Background())
+func TestOllamaClient_Endpoint(t *testing.T) {
+	o := &ollamaClient{baseURL: "http://192.168.1.188:11434", model: "qwen3-embedding:0.6b"}
+	// 构造一个请求报文验证 endpoint 与 body 结构（不发网络请求）
+	req, err := o.newEmbedRequest(context.Background(), []string{"测试"})
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("构造请求失败: %v", err)
 	}
-	fmt.Println(dedup)
-	//err = m.Insert(context.Background(), time.Now(), "item.MD5", Title, embedding[0].New)
-	//if err != nil {
-	//	t.Error(err)
-	//}
-	//d := dao.NewRssContentDao()
-	//
-	//dateRange, err2 := d.FindByDateRange(context.Background(), time.Now().Add(-time.Hour*24), time.Now())
-	//if err2 != nil {
-	//	t.Error(err2)
-	//}
-	//
-	//for _, item := range dateRange {
-	//	fmt.Println(item.Title)
-	//	embedding, err := New(context.Background(), item.Title)
-	//	if err != nil {
-	//		t.Error(err)
-	//	}
-	//	t.Log(embedding)
-	//
-	//	m := milvus.New(context.Background())
-	//
-	//	err = m.Insert(context.Background(), item.Date, item.MD5, item.Title, embedding[0].New)
-	//	if err != nil {
-	//		t.Error(err)
-	//	}
-	//}
+	if got := req.URL.String(); got != "http://192.168.1.188:11434/api/embed" {
+		t.Errorf("endpoint 不匹配: %s", got)
+	}
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(req.Body); err != nil {
+		t.Fatalf("读取 body 失败: %v", err)
+	}
+	if !strings.Contains(body.String(), `"qwen3-embedding:0.6b"`) {
+		t.Errorf("body 缺少 model: %s", body.String())
+	}
 }

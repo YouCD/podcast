@@ -31,7 +31,7 @@ func analysis(ctx context.Context, state *graphState) (*graphState, error) {
 	if err != nil {
 		return state, err
 	}
-	Content, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "analysis", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5)
+	Content, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "analysis", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5, 0)
 	if err != nil {
 		return state, err
 	}
