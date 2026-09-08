@@ -59,7 +59,7 @@ func analyzeRss(ctx context.Context, state *graphState) (*graphState, error) {
 			var retryCount int
 			const maxRetry = 3
 		Retry:
-			llmResult, llmInfo, err = common.RunModelGenerate(ctx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5, state.llmTimeout)
+			llmResult, llmInfo, err = common.RunModelGenerate(ctx, state.llmPool, "analyze_rss", msgs, openai.ChatCompletionResponseFormatTypeJSONObject, 5, state.llmTimeout, true)
 			if err != nil {
 				retryCount++
 				if retryCount < maxRetry {

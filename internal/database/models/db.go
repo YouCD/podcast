@@ -28,7 +28,7 @@ func NewDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("database config is nil")
 	}
 	p := cfg.Database.PostgreSQL
-	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Shanghai",
 		p.Host, p.Port, p.User, p.Password, p.DBName)
 
 	logLevel := "info"
@@ -60,7 +60,7 @@ func NewDB(cfg *config.Config) (*gorm.DB, error) {
 // createDatabaseIfNotExists 如果数据库不存在则创建
 func createDatabaseIfNotExists(ctx context.Context, cfg *config.PostgreSQL) error {
 	// 连接到默认的 postgres 数据库
-	defaultDSN := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=postgres sslmode=disable",
+	defaultDSN := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=postgres sslmode=disable TimeZone=Asia/Shanghai",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password)
 
 	conn, err := gorm.Open(postgres.Open(defaultDSN), &gorm.Config{})

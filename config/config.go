@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"podcast/pkg/types"
 
@@ -125,6 +126,12 @@ func LoadAppConfig(fileName string) (*Config, error) {
 	if Cfg.Database.PostgreSQL.Score == 0 {
 		Cfg.Database.PostgreSQL.Score = 0.78
 	}
+	// 统一使用本地时区（Asia/Shanghai），确保写入 PostgreSQL timestamp 列的 time.Time 序列化为本地时间
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return nil, fmt.Errorf("加载时区 Asia/Shanghai 失败: %w", err)
+	}
+	time.Local = loc
 	log.Init(logConfig)
 	log.SetLogLevel(Cfg.Global.LogLevel)
 	log.WithCtx(context.Background()).Debug("日志级别： ", Cfg.Global.LogLevel)

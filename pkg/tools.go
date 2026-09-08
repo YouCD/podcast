@@ -23,9 +23,8 @@ func WithRetry(fn func() error, maxRetries int) error {
 	return err
 }
 
-func NewChatModel(ctx context.Context, llmInfo *types.LLMInfo, responseFormat openai.ChatCompletionResponseFormatType) (*qwen.ChatModel, error) {
+func NewChatModel(ctx context.Context, llmInfo *types.LLMInfo, responseFormat openai.ChatCompletionResponseFormatType, enableThinking bool) (*qwen.ChatModel, error) {
 	// t := float32(0.3)
-	enableThinking := false // 默认关闭深度思考，RSS 批量分类/分析对延迟敏感，可显著提速
 	cfg := &qwen.ChatModelConfig{
 		APIKey:  llmInfo.ApiKey,
 		BaseURL: llmInfo.BaseURL,

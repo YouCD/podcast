@@ -55,7 +55,7 @@ func categorization(ctx context.Context, state *graphState) (*graphState, error)
 			var retryCount int
 			const maxRetry = 3
 		Retry:
-			category, llmInfo, err = common.RunModelGenerate(ctx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 3, state.llmTimeout)
+			category, llmInfo, err = common.RunModelGenerate(ctx, state.llmPool, "categorization", msgs, openai.ChatCompletionResponseFormatTypeText, 3, state.llmTimeout, false)
 			if err != nil {
 				retryCount++
 				if retryCount < maxRetry {

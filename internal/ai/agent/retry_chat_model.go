@@ -74,7 +74,7 @@ func NewRetryChatModel(ctx context.Context, pool *llm.LLMPool, maxRetry int, bac
 	if err != nil {
 		return nil, err
 	}
-	chatModel, err := pkg.NewChatModel(ctx, llmInfo, responseFormat)
+	chatModel, err := pkg.NewChatModel(ctx, llmInfo, responseFormat, true)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (r *retryChatModel) newModel(ctx context.Context) (*qwen.ChatModel, error) 
 		r.llmPool.Put(ctx, llmInfo)
 	}()
 	// 构建ReAct Agent
-	chatModel, err := pkg.NewChatModel(ctx, llmInfo, r.responseFormat)
+	chatModel, err := pkg.NewChatModel(ctx, llmInfo, r.responseFormat, true)
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ func ModelGenerate(ctx context.Context, model model.ToolCallingChatModel, input 
 	return msg.Content, nil
 }
 
-func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, input []*schema.Message, responseFormat openai.ChatCompletionResponseFormatType, attemptTotal int, timeout time.Duration) (string, *types.LLMInfo, error) {
+func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, input []*schema.Message, responseFormat openai.ChatCompletionResponseFormatType, attemptTotal int, timeout time.Duration, enableThinking bool) (string, *types.LLMInfo, error) {
 	var llm_info *types.LLMInfo
 	var lastErr error
 	var llmResult string
@@ -54,7 +54,7 @@ func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, in
 			}
 		}
 
-		chatModel, err := pkg.NewChatModel(ctx, llmInfo, responseFormat)
+		chatModel, err := pkg.NewChatModel(ctx, llmInfo, responseFormat, enableThinking)
 		if err != nil {
 			pool.Put(ctx, llmInfo)
 			lastErr = err

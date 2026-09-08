@@ -89,7 +89,7 @@ func NewEngine(ctx context.Context, llmInfo *types.LLMInfo, cfg *types.RagConfig
 	}
 
 	// 初始化 llm
-	chatModel, err := pkg.NewChatModel(ctx, llmInfo, openai.ChatCompletionResponseFormatTypeText)
+	chatModel, err := pkg.NewChatModel(ctx, llmInfo, openai.ChatCompletionResponseFormatTypeText, true)
 	if err != nil {
 		return nil, err
 	}
