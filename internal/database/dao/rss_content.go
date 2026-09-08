@@ -216,7 +216,7 @@ func (dao *rssContentDao) FindByIDWithLLMHTML(ctx context.Context, id string) (*
 // 参数: post Rss结构体指针
 // 返回: 错误信息
 func (dao *rssContentDao) Save(ctx context.Context, post *models.RssContent) error {
-	return dao.db.Model(&models.RssContent{}).WithContext(ctx).Save(post).Error
+	return dao.db.Model(&models.RssContent{}).WithContext(ctx).Where("id = ?", post.ID).Save(post).Error
 }
 
 type FieldKv struct {

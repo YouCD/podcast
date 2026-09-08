@@ -2,7 +2,9 @@ package dao
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"podcast/pkg/types"
 	"regexp"
 	"strings"
 	"testing"
@@ -13,12 +15,11 @@ import (
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
 
-	"github.com/duke-git/lancet/v2/slice"
 	"github.com/youcd/toolkit/log"
 )
 
 func init() {
-	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.yaml")
+	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.local.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -41,24 +42,47 @@ func TestCommunityPostDao_FindByMD5(t *testing.T) {
 	if err != nil {
 		log.WithCtx(context.Background()).Errorf("错误: %v", err)
 	}
-	var val int
-	var vals []int
+	//var val int
+	//var vals []int
 	for _, content := range all {
-		lens := len([]rune(content.Content))
-		if lens > val {
-			val = lens
+		//lens := len([]rune(content.Content))
+		//if lens > val {
+		//	val = lens
+		//}
+		//vals = append(vals, lens)
+		if content.Dgraph == "" {
+			continue
 		}
-		vals = append(vals, lens)
-	}
-	log.WithCtx(context.Background()).Infof("%d", val)
-	slice.Sort(vals)
-	log.WithCtx(context.Background()).Infof("%v", vals)
+		var a interface{}
 
-	var aa int
-	for _, i := range vals {
-		aa += i
+		err := json.Unmarshal([]byte(content.Dgraph), &a)
+		if err != nil {
+			log.WithCtx(context.Background()).Errorf("ID: %d , %s  错误: %v", content.ID, content.Dgraph, err)
+			continue
+		}
+		marshal, err := json.Marshal(a)
+		if err != nil {
+			log.WithCtx(context.Background()).Errorf("错误: %v", err)
+			continue
+		}
+		log.WithCtx(context.Background()).Infof("%s", string(marshal))
+		content.Dgraph=string(marshal)
+		err = dao.Save(context.Background(), content)
+		if err != nil {
+			log.WithCtx(context.Background()).Errorf("错误: %v", err)
+			continue
+		}
+
 	}
-	fmt.Println("平均 ", aa/len(vals))
+	//log.WithCtx(context.Background()).Infof("%d", val)
+	//slice.Sort(vals)
+	//log.WithCtx(context.Background()).Infof("%v", vals)
+
+	//var aa int
+	//for _, i := range vals {
+	//	aa += i
+	//}
+	//fmt.Println("平均 ", aa/len(vals))
 }
 
 func Test_rssContentDao_FindByDateRange(t *testing.T) {
@@ -82,14 +106,31 @@ func Test_rssContentDao_FindByDateRange(t *testing.T) {
 }
 
 func Test_rssContentDao_FindByID(t *testing.T) {
-	llmPool := llm.NewLLMPool()
+	llmInfos := make([]*types.LLMInfo, 0)
+
+	llmPool := llm.NewLLMPool(llmInfos)
 	ctx := context.Background()
 	get, err := llmPool.Get(ctx)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("get llm error: %w", err)
 		return
 	}
-	engine, err := rag.NewEngine(ctx, get)
+	// 创建 RAG 引擎配置
+	ragCfg := &types.RagConfig{
+		PgVector: &types.PgVector{
+			Host:          config.Cfg.Database.PostgreSQL.Host,
+			Port:          config.Cfg.Database.PostgreSQL.Port,
+			User:          config.Cfg.Database.PostgreSQL.User,
+			Password:      config.Cfg.Database.PostgreSQL.Password,
+			DBName:        config.Cfg.Database.PostgreSQL.DBName,
+			RssCollection: config.Cfg.Database.PostgreSQL.RssCollection,
+		},
+		Embedding: &types.Embedding{
+			APIKey: config.Cfg.Vector.Embedding.APIKey,
+			Model:  config.Cfg.Vector.Embedding.Model,
+		},
+	}
+	engine, err := rag.NewEngine(ctx, get, ragCfg)
 	if err != nil {
 		t.Log("new engine error: %w", err)
 		return

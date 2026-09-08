@@ -4,20 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"podcast/config"
-	"podcast/internal/database/models"
-
 	"github.com/youcd/toolkit/log"
 )
-
-func init() {
-	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.yaml")
-	if err != nil {
-		panic(err)
-	}
-	models.Init(c)
-	log.WithCtx(context.Background()).Infof("%#v", c)
-}
 
 func TestKeyInfoDao_FindByKeynameAndGenre(t *testing.T) {
 	dao := &keyInfoDao{}

@@ -70,7 +70,13 @@ func dgraph(ctx context.Context, state *graphState) ([]*types.RSSItem, error) {
 				log.WithCtx(ctx).Errorw("dgraph", "llmResult", llmResult, "error", err)
 				return
 			}
-			item.Dgraph = cleanResult
+			// 压缩一次json
+			marshal, err := json.Marshal(payload)
+			if err != nil {
+				log.WithCtx(ctx).Errorw("dgraph", "payload", payload, "error", err)
+				return
+			}
+			item.Dgraph = string(marshal)
 			mu.Lock()
 			temp = append(temp, item)
 			mu.Unlock()

@@ -104,6 +104,8 @@ func LoadAppConfig(fileName string) (*Config, error) {
 	if Cfg.Global.LogFile != "" {
 		logConfig.LumberjackCfg = &lumberjack.Logger{
 			Filename: Cfg.Global.LogFile,
+			Compress: true,
+			MaxAge:   7,
 		}
 	}
 
