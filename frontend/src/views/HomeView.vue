@@ -458,17 +458,15 @@ main {
   justify-content: flex-end;
   align-items: center;
   padding: 1rem;
-  //position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 10;
-  width: 100%;
-  height: 50px;
-  //background: black;
-}
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 10;
+    width: 100%;
+    height: 50px;
+  }
 
-/* 左上角 title */
+  /* 左上角 title */
 .title {
   position: absolute;
   top: 0;
@@ -577,7 +575,6 @@ main {
   font-size: 20px;
   color: white;
   cursor: pointer;
-  //padding: 8px;
   border-radius: 4px;
   transition: all 0.2s ease;
   display: flex;
@@ -680,12 +677,6 @@ main {
 
 /* 登入按钮 */
 .login-button {
-  //background: rgba(255, 255, 255, 0.2);
-  //color: white;
-  //border: 1px solid rgba(255, 255, 255, 0.3);
-  //border-radius: 999px;
-  //padding: 0.5rem 1rem;
-  //font-size: 0.9rem;
   cursor: pointer;
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;

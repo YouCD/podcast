@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.yaml")
+	c, err := config.LoadAppConfig("/home/ycd/self_data/source_code/podcast/config/config.local.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +35,7 @@ func TestDgraph_Insert(t *testing.T) {
 		t.Errorf(" error = %v", err)
 		return
 	}
-	d, err := New()
+	d, err := New(config.Cfg.Database.Dgraph)
 	if err != nil {
 		t.Errorf("New() error = %v", err)
 		return
@@ -74,7 +74,7 @@ func TestDgraph_Insert(t *testing.T) {
 }
 
 func TestDgraph_QueryAliases(t *testing.T) {
-	d, err := New()
+	d, err := New(config.Cfg.Database.Dgraph)
 	if err != nil {
 		t.Errorf("New() error = %v", err)
 		return

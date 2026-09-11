@@ -193,7 +193,12 @@ func NewToolManager(ctx context.Context, cfg *MCPConfig, ragConfig *types.RagCon
 	tm := &ToolManager{}
 
 	// 初始化 MCP 客户端
-	tr, err := transport.NewStreamableHTTP("http://" + cfg.HostPort + "/mcp?token=" + cfg.Token)
+	// 将 0.0.0.0 替换为 127.0.0.1，因为 0.0.0.0 是绑定地址而非路由地址
+	hostPort := cfg.HostPort
+	if strings.Contains(hostPort, "0.0.0.0") {
+		hostPort = strings.Replace(hostPort, "0.0.0.0", "127.0.0.1", 1)
+	}
+	tr, err := transport.NewStreamableHTTP("http://" + hostPort + "/mcp?token=" + cfg.Token)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("Failed to init SSE transport : %v", err)
 		return nil, fmt.Errorf("初始化 SSE 传输失败: %w", err)

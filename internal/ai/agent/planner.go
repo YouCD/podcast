@@ -148,7 +148,7 @@ func (p *Planner) parsePlanResponse(response string, query string) (*Plan, error
 	return &plan, nil
 }
 
-// extractJSON 从文本中提取 JSON
+// extractJSON 从文本中提取 JSON（支持 LLM 返回的混合中文+JSON 响应）
 func extractJSON(text string) string {
 	// 尝试找到 JSON 块
 	start := strings.Index(text, "{")
@@ -164,9 +164,23 @@ func extractJSON(text string) string {
 		} else if text[i] == '}' {
 			depth--
 			if depth == 0 {
-				return text[start : i+1]
+				candidate := text[start : i+1]
+				// 验证 JSON 合法性
+				var temp interface{}
+				if err := json.Unmarshal([]byte(candidate), &temp); err == nil {
+					return candidate
+				}
+				// JSON 不合法，继续寻找下一个 { 开始的可能
+				break
 			}
 		}
 	}
+
+	// 如果提取的 JSON 不合法，尝试整体解析
+	var temp interface{}
+	if err := json.Unmarshal([]byte(text), &temp); err == nil {
+		return text
+	}
+
 	return ""
 }
