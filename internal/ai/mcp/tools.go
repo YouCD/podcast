@@ -73,6 +73,7 @@ func (m *MCPServer) RagSearch(ctx context.Context, request mcp.CallToolRequest) 
 	if err != nil {
 		return nil, fmt.Errorf("初始化 RAG 引擎失败：%w", err)
 	}
+	defer ragEngine.Close(ctx)
 	stream, err := ragEngine.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("RAG查询失败: %w", err)

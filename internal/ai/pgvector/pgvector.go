@@ -12,6 +12,27 @@ import (
 	"gorm.io/gorm"
 )
 
+// 连接池参数：避免高并发下无限制开连接耗尽 PostgreSQL max_connections
+const (
+	maxOpenConns    = 10
+	maxIdleConns    = 2
+	connMaxLifetime = time.Hour
+	connMaxIdleTime = 10 * time.Minute
+)
+
+// applyPoolSettings 设置连接池参数
+func applyPoolSettings(gdb *gorm.DB) error {
+	sqlDB, err := gdb.DB()
+	if err != nil {
+		return fmt.Errorf("获取底层 *sql.DB 失败: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
+	return nil
+}
+
 // PgVector PostgreSQL + pgvector 向量库封装
 type PgVector struct {
 	db        *gorm.DB
@@ -36,6 +57,9 @@ func NewPgVector(ctx context.Context, cfg *types.PgVector) *PgVector {
 		if err != nil {
 			log.WithCtx(ctx).Panic("连接 PostgreSQL 失败:", err)
 		}
+	}
+	if err := applyPoolSettings(db); err != nil {
+		log.WithCtx(ctx).Panic("设置连接池参数失败:", err)
 	}
 
 	// 启用 pgvector 扩展

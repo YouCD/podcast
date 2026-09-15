@@ -83,7 +83,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 		user.POST("/login", userHandler.Login)
 	}
 
-	// Report相关路由 - 需要认证
+	// Report相关路由 - 公开访问（llm_result 由浏览器 window.open 直接打开，不带 Authorization header）
 	reports := r.Group("/api/reports")
 	{
 		// 获取所有report列表，但不包含LLMResult

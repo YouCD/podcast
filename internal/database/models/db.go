@@ -18,6 +18,27 @@ var (
 	once sync.Once
 )
 
+// 连接池参数：避免高并发下无限制开连接耗尽 PostgreSQL max_connections
+const (
+	maxOpenConns    = 20
+	maxIdleConns    = 5
+	connMaxLifetime = time.Hour
+	connMaxIdleTime = 10 * time.Minute
+)
+
+// applyPoolSettings 设置连接池参数
+func applyPoolSettings(gdb *gorm.DB) error {
+	sqlDB, err := gdb.DB()
+	if err != nil {
+		return fmt.Errorf("获取底层 *sql.DB 失败: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
+	return nil
+}
+
 func GetDb() *gorm.DB {
 	return db
 }
@@ -52,6 +73,9 @@ func NewDB(cfg *config.Config) (*gorm.DB, error) {
 		if err != nil {
 			return nil, fmt.Errorf("open postgresql: %w", err)
 		}
+	}
+	if err := applyPoolSettings(conn); err != nil {
+		return nil, err
 	}
 
 	return conn, nil

@@ -20,6 +20,7 @@ func saveToPgVector(ctx context.Context, llmPool *llm.LLMPool, rss *models.RssCo
 	if err != nil {
 		return fmt.Errorf("new engine error: %w", err)
 	}
+	defer engine.Close(ctx)
 	err = engine.AddRssContent(ctx, rss)
 	if err != nil {
 		return fmt.Errorf("insert error: %w", err)
