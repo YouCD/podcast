@@ -2,10 +2,9 @@ package daily
 
 import (
 	"context"
+	"podcast/internal/ai/llm"
 	"testing"
 	"time"
-
-	"podcast/internal/ai/llm"
 
 	"podcast/config"
 	"podcast/internal/database/models"
@@ -28,7 +27,11 @@ func init() {
 func TestNew(t *testing.T) {
 	ctx := context.Background()
 	pool := llm.NewLLMPool(config.Cfg.LLM)
-	dailyReport, err := New(ctx, config.Cfg.Podcast, pool)
+	location := time.Now().Location()
+	startDate := time.Date(2026, 9, 17, 0, 0, 0, 0, location)
+	endDate := time.Date(2026, 9, 17, 23, 59, 59, 0, location)
+
+	dailyReport, err := New(ctx, config.Cfg.Podcast, pool, startDate, endDate)
 	if err != nil {
 		panic(err)
 	}

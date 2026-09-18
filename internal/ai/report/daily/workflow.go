@@ -35,12 +35,12 @@ func init() {
 	})
 }
 
-func buildDailyWorkflow(cfg *types.Podcast, llmPool *llm.LLMPool) *compose.Graph[int, *graphState] {
+func buildDailyWorkflow(cfg *types.Podcast, llmPool *llm.LLMPool, sTime, eTime time.Time) *compose.Graph[int, *graphState] {
 	graph := compose.NewGraph[int, *graphState]()
 
 	// 节点 1: 创建报告对象
 	_ = graph.AddLambdaNode("create_report", compose.InvokableLambda(func(ctx context.Context, reportID int) (*graphState, error) {
-		state, err := createReport(ctx, reportID)
+		state, err := createReport(ctx, reportID, sTime, eTime)
 		if err != nil {
 			return nil, err
 		}
@@ -97,9 +97,9 @@ func buildDailyWorkflow(cfg *types.Podcast, llmPool *llm.LLMPool) *compose.Graph
 	return graph
 }
 
-func New(ctx context.Context, cfg *types.Podcast, llmPool *llm.LLMPool) (compose.Runnable[int, *graphState], error) {
+func New(ctx context.Context, cfg *types.Podcast, llmPool *llm.LLMPool, sTime, eTime time.Time) (compose.Runnable[int, *graphState], error) {
 	// 构建工作流
-	workflow := buildDailyWorkflow(cfg, llmPool)
+	workflow := buildDailyWorkflow(cfg, llmPool, sTime, eTime)
 	// 编译（启用流式处理和回调）
 	// 使用 AllPredecessor 模式，确保 save_report 等待所有前驱节点完成后再执行
 	runnable, err := workflow.Compile(ctx, compose.WithNodeTriggerMode(compose.AllPredecessor))

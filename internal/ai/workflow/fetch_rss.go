@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"podcast/config"
 	"regexp"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ func fetchFeeds(ctx context.Context, resource []*types.RSSSource) (*graphState, 
 // crawlAndParseRSS 爬取并解析RSS链接
 func crawlAndParseRSS(ctx context.Context, rss *types.RSSSource) ([]*types.RSSItem, error) {
 	fp := gofeed.NewParser()
+	fp.UserAgent = config.UA
 	feed, err := fp.ParseURLWithContext(rss.URL, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("解析RSS链接失败: %w", err)

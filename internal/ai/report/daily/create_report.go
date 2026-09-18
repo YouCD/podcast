@@ -12,7 +12,21 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
-func createReport(ctx context.Context, reportID int) (*graphState, error) {
+func createReport(ctx context.Context, reportID int, sTime, eTime time.Time) (*graphState, error) {
+	if !sTime.IsZero() && !eTime.IsZero() {
+		question := fmt.Sprintf("日报-%s", sTime.Format("2006-01-02"))
+
+		return &graphState{ // 创建新报告
+			Report: &models.Report{
+				TimeArray: fmt.Sprintf("%s~%s", sTime.Format("15:04:05"), eTime.Format("15:04:05")),
+				Question:  question,
+			},
+			startDate:   sTime,
+			endDate:     eTime,
+			isNewReport: true,
+		}, nil
+	}
+
 	// 检查是否已存在报告
 	existingReport, startDate, endDate, question, err := getExistingReport(ctx, reportID)
 	if err != nil {

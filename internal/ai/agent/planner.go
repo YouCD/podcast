@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"podcast/config"
 	"strings"
 
+	"github.com/cloudwego/eino-ext/components/model/qwen"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
@@ -55,7 +57,7 @@ func (p *Planner) CreatePlan(ctx context.Context, query string, toolsInfo []*sch
 	}
 
 	// 调用 LLM 生成计划
-	response, err := p.chatModel.Generate(ctx, messages)
+	response, err := p.chatModel.Generate(ctx, messages, qwen.WithExtraHeader(config.GetUA()))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func (p *Planner) Replan(ctx context.Context, currentPlan *Plan, executedSteps [
 		schema.UserMessage(replanPrompt),
 	}
 
-	response, err := p.chatModel.Generate(ctx, messages)
+	response, err := p.chatModel.Generate(ctx, messages, qwen.WithExtraHeader(config.GetUA()))
 	if err != nil {
 		return nil, err
 	}

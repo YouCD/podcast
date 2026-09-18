@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"podcast/config"
 	"strings"
 
 	"podcast/pkg/types"
@@ -29,7 +30,7 @@ func ConversationTitle(ctx context.Context, llm *types.LLMInfo, msg []*types.Mes
 	}
 	resp, err := chatModel.Generate(ctx, []*schema.Message{
 		schema.UserMessage(fmt.Sprintf(PromptConversationTitle, string(marshal))),
-	})
+	}, qwen.WithExtraHeader(config.GetUA()))
 	if err != nil {
 		return "", fmt.Errorf("Generate error: %w", err)
 	}

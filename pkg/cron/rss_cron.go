@@ -103,7 +103,7 @@ func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types
 
 	// 添加每日报告任务，每天凌晨0点执行
 
-	dailyReport, err := daily.New(ctx, podcast, llmPool)
+	dailyReport, err := daily.New(ctx, podcast, llmPool,time.Time{},time.Time{})
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建每日报告处理器失败: %v", err)
 		return

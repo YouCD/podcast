@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"podcast/config"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"podcast/pkg"
 	"podcast/pkg/types"
 
+	"github.com/cloudwego/eino-ext/components/model/qwen"
 	"github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -66,7 +68,8 @@ func RunModelGenerate(ctx context.Context, pool *llm.LLMPool, msgName string, in
 		if timeout > 0 {
 			generateCtx, generateCancel = context.WithTimeout(ctx, timeout)
 		}
-		msg, err := chatModel.Generate(generateCtx, input)
+
+		msg, err := chatModel.Generate(generateCtx, input, qwen.WithExtraHeader(config.GetUA()))
 		if generateCancel != nil {
 			generateCancel()
 		}

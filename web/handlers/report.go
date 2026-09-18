@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 	"text/template"
+	"time"
 
 	"podcast/internal/ai/llm"
 	"podcast/internal/ai/report/daily"
@@ -136,7 +137,7 @@ func (r *ReportsHandler) startGeneration(ctx context.Context, id int) {
 		defer r.generating.Delete(id)
 		// 脱离请求取消，保留 request_id 等值，避免响应写完后后台任务被取消
 		bctx := context.WithoutCancel(ctx)
-		c2, err := daily.New(bctx, r.podcastCfg, r.llmPool)
+		c2, err := daily.New(bctx, r.podcastCfg, r.llmPool, time.Time{}, time.Time{})
 		if err != nil {
 			log.WithCtx(bctx).Errorf("创建报告生成器失败: %v", err)
 			return

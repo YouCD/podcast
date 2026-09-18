@@ -3,24 +3,23 @@ module podcast
 go 1.27.1
 
 require (
-	github.com/cloudwego/eino v0.8.1
-	github.com/cloudwego/eino-ext/components/document/loader/file v0.0.0-20260904094655-8d8ff4e79992
-	github.com/cloudwego/eino-ext/components/document/transformer/splitter/markdown v0.0.0-20260904094655-8d8ff4e79992
-	github.com/cloudwego/eino-ext/components/document/transformer/splitter/recursive v0.0.0-20260904094655-8d8ff4e79992
-	github.com/cloudwego/eino-ext/components/document/transformer/splitter/semantic v0.0.0-20260904094655-8d8ff4e79992
-	github.com/cloudwego/eino-ext/components/embedding/dashscope v0.0.0-20260904094655-8d8ff4e79992
+	github.com/cloudwego/eino v0.9.19
+	github.com/cloudwego/eino-ext/components/document/loader/file v0.0.0-20260916065400-2607f61e807f
+	github.com/cloudwego/eino-ext/components/document/transformer/splitter/markdown v0.0.0-20260916065400-2607f61e807f
+	github.com/cloudwego/eino-ext/components/document/transformer/splitter/recursive v0.0.0-20260916065400-2607f61e807f
+	github.com/cloudwego/eino-ext/components/document/transformer/splitter/semantic v0.0.0-20260916065400-2607f61e807f
+	github.com/cloudwego/eino-ext/components/embedding/dashscope v0.0.0-20260916065400-2607f61e807f
 	github.com/cloudwego/eino-ext/components/model/qwen v0.1.9
 	github.com/cloudwego/eino-ext/components/tool/mcp v0.0.9
 	github.com/cloudwego/eino-ext/libs/acl/openai v0.1.17
 	github.com/dgraph-io/dgo/v250 v250.0.0
-	github.com/duke-git/lancet/v2 v2.3.9
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/feeds v1.2.0
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/json-iterator/go v1.1.13-0.20220915233716-71ac16282d12
-	github.com/mark3labs/mcp-go v1.0.0
+	github.com/mark3labs/mcp-go v1.1.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mmcdole/gofeed v1.4.2
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -32,10 +31,10 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/youcd/toolkit v0.0.0-20260909054120-a20a45ffad94
 	go.uber.org/zap v1.28.0
-	golang.org/x/sync v0.22.0
-	golang.org/x/time v0.15.0
-	google.golang.org/grpc v1.83.2
-	gorm.io/driver/postgres v1.6.2
+	golang.org/x/sync v0.23.0
+	golang.org/x/time v0.16.0
+	google.golang.org/grpc v1.84.0
+	gorm.io/driver/postgres v1.6.3
 	gorm.io/gorm v1.31.2
 )
 
@@ -85,7 +84,6 @@ require (
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect

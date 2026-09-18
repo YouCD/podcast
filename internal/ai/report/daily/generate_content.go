@@ -54,7 +54,26 @@ Retry:
 	if len([]rune(llmResult)) < 100 {
 		return state, ErrContentIsToShort
 	}
-	state.Report.Content = llmResult
+	state.Report.Content = StripThinkContent(llmResult)
 	log.WithCtx(ctx).Infof("Markdown 内容生成完成")
 	return state, nil
+}
+
+// thinkRegex 匹配 <think>...</think> 及其内部内容
+// (?s) 让 . 可以匹配换行符
+var thinkRegex = regexp.MustCompile(`(?s)<think>.*?</think>`)
+
+// StripThinkContent 去除文本中的思考内容（<think>...</think>）
+// 同时会清理首尾多余的空白字符
+func StripThinkContent(content string) string {
+	// 1. 移除所有 <think>...</think> 块
+	cleaned := thinkRegex.ReplaceAllString(content, "")
+
+	// 2. 如果存在不完整的 <think>（没有闭合标签），也一并处理
+	if idx := strings.Index(cleaned, "<think>"); idx != -1 {
+		cleaned = cleaned[:idx]
+	}
+
+	// 3. 清理首尾空白
+	return strings.TrimSpace(cleaned)
 }

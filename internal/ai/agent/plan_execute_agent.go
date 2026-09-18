@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"podcast/config"
 	"strings"
 	"sync"
 
+	"github.com/cloudwego/eino-ext/components/model/qwen"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
@@ -439,7 +441,7 @@ func (a *PlanExecuteAgent) generateFinalAnswer(ctx context.Context, query string
 		schema.UserMessage(prompt),
 	}
 
-	response, err := a.chatModel.Generate(ctx, messages)
+	response, err := a.chatModel.Generate(ctx, messages, qwen.WithExtraHeader(config.GetUA()))
 	if err != nil {
 		return "", err
 	}

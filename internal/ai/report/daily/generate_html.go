@@ -3,6 +3,7 @@ package daily
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"podcast/internal/ai/common"
 	"podcast/pkg/types"
@@ -37,8 +38,16 @@ Retry:
 		}
 		// 如果解析失败，则将LLMResult置空
 		state.Report.LLMResult = ""
-	} else {
+	}
+
+	if strings.HasPrefix(q.LLMResult, "<!DOCTYPE html>") {
 		state.Report.LLMResult = q.LLMResult
+	} else {
+		state.Report.LLMResult = ""
+		if count < 3 {
+			count++
+			goto Retry
+		}
 	}
 	log.WithCtx(ctx).Info("生成HTML完成")
 	return state, nil

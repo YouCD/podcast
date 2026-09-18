@@ -16,6 +16,14 @@ import (
 
 var Cfg *Config
 
+const UA = "PodCast"
+
+func GetUA() map[string]string {
+	header := make(map[string]string)
+	header["user-agent"] = UA
+	return header
+}
+
 // Database 数据库配置（导出供 DI 使用）
 type Database struct {
 	PostgreSQL *PostgreSQL `json:"postgresql" yaml:"postgresql"`
