@@ -39,7 +39,13 @@ func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types
 func (s *MCPServer) RunWithGin(router *gin.Engine) {
 	// 创建 slog.Logger 适配 zap
 	slogLogger := slog.New(&log.ZapSlogAdapter{Logger: log.GetLogger()})
-	stream := server.NewStreamableHTTPServer(s.MCPServer, server.WithStreamableHTTPLogger(slogLogger))
+	stream := server.NewStreamableHTTPServer(s.MCPServer,
+		server.WithStreamableHTTPLogger(slogLogger),
+		// frp 隧道在本机回环地址终结, mcp-go 的 DNS rebinding 防护会对
+		// Host 头非 localhost 的回环连接返回 403; 本服务经反向代理暴露且
+		// /mcp 带 token 鉴权, 故关闭该防护
+		server.WithDisableLocalhostProtection(true),
+	)
 	s.Init(s.MCPProxy)
 	// 将MCP处理程序注册到Gin路由器
 	router.Any("/mcp", func(c *gin.Context) {
@@ -56,7 +62,7 @@ func (s *MCPServer) RunWithGin(router *gin.Engine) {
 }
 
 func (s *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
-	s.RegisterTool(search24HRss, Search24HRss).
+	s.RegisterTool(searchRss, SearchRss).
 		RegisterTool(rssCategories, RssCategories).
 		RegisterTool(getCurrentTime, GetCurrentTime)
 	// s.RegisterTool(ragSearch, RagSearch)

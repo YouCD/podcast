@@ -61,7 +61,7 @@
 | Web 框架 | Gin | 高性能 HTTP 路由框架 |
 | ORM | GORM | 全功能对象关系映射 |
 | AI 框架 | Eino | CloudWeGo AI 应用开发框架 |
-| 向量数据库 | Milvus | 高性能向量检索引擎 |
+| 向量数据库 | PostgreSQL + pgvector | 高性能向量检索引擎 |
 | 图数据库 | Dgraph | 分布式图数据库 |
 | 认证 | JWT | 无状态身份认证 |
 
@@ -112,7 +112,7 @@ RSS 内容处理采用基于 Eino Framework 的流式 AI 工作流：
 | categorization | 内容分类 | AI 自动识别内容类别 |
 | analyze_rss | 深度分析 | 提取关键信息、生成摘要 |
 | dgraph | 图谱构建 | 提取实体关系、构建知识图谱 |
-| save | 持久化存储 | 保存到 MySQL、Milvus、Dgraph |
+| save | 持久化存储 | 保存到 PostgreSQL、pgvector、Dgraph |
 
 ---
 
@@ -151,7 +151,7 @@ podcast/
 │   │   ├── common/               # 通用组件
 │   │   ├── embedding/            # 向量嵌入
 │   │   ├── llm/                  # 大语言模型封装
-│   │   ├── milvus/               # Milvus 操作
+│   │   ├── pgvector/             # PostgreSQL pgvector 向量操作
 │   │   ├── mcp/                  # MCP 协议实现
 │   │   ├── rag/                  # RAG 检索增强
 │   │   ├── agent/                # AI Agent
@@ -193,9 +193,8 @@ podcast/
 
 - **Go**: 1.25+
 - **Node.js**: 20.19.0+ 或 22.12.0+
-- **MySQL**: 8.0+
-- **Milvus**: 2.4+
-- **Dgraph**: 23.0+ (可选)
+- **PostgreSQL**: 16+（内置 pgvector 扩展，应用数据 + 向量数据）
+- **Dgraph**: 23.0+（知识图谱，启动时初始化 schema 与 agent 工具）
 
 ### 安装步骤
 
@@ -218,8 +217,11 @@ cd frontend && npm install && cd ..
 
 **3. 数据库准备**
 
-```sql
-CREATE DATABASE IF NOT EXISTS rss CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+应用首次启动自动创建数据库、`vector` 扩展与向量表，只需提供 PostgreSQL 服务：
+
+```bash
+# 本地开发示例（或使用 deploy/docker-compose.yaml 的 postgres 服务）
+psql -c "CREATE DATABASE podcast;"   # 应用启动时自动执行 CREATE DATABASE 若缺
 ```
 
 **4. 配置文件**
@@ -253,21 +255,18 @@ make build
 ```
 # 数据库配置
 database:
-  mysql:
+  postgresql:
     host: "localhost"
-    port: 3306
-    user: "root"
+    port: 5432
+    user: "postgres"
     password: "password"
-    dbName: "rss"
-  dgraph: "localhost:9080"
-  milvus:
-    endpoint: "localhost:19530"
-    apiKey: ""
     dbName: "podcast"
-    rssCollection: "rss_content"
-    dedupCollection: "content_dedup"
+    # 以下字段可选，缺值时应用内置默认
+    rssCollection: "rss_vectors"
+    dedupCollection: "dedup_title"
     dimension: 1024
-    score: 0.85
+    score: 0.78
+  dgraph: "localhost:9080"
 
 # 大语言模型配置 (支持多个，自动负载均衡)
 LLM:
@@ -308,31 +307,30 @@ report:
   - schedule: "0 0 1 * *"       # 每月 1 号
     topic: "本月技术热点回顾"
 
-# 认证配置
-authentication:
-  jwtSecret: "your-jwt-secret-key"
+# 认证配置：无配置项，JWT 签名密钥由用户服务内部生成（登录接口返回 token）
 
-# MCP 代理配置
+# MCP 代理配置（外部 MCP 服务，通过 url + headers）
 mcpProxy:
-  filesystem:
-    command: "mcp-filesystem"
-    args: ["/data"]
-  browser:
-    command: "mcp-browser"
-    args: []
+  web_search:
+    url: "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp"
+    headers:
+      Authorization: "Bearer your-api-key"
+      Accept-Encoding: identity
 
-# 字节跳动 TTS 配置 (播客功能)
-byteDance:
-  appID: "your-app-id"
-  accessToken: "your-access-token"
+# 字节跳动 TTS 配置（播客功能）
+podcast:
+  dir: "/data/podcasts"
+  byteDance:
+    appID: "your-app-id"
+    accessToken: "your-access-token"
 ```
 
 ### 配置项详解
 
 | 配置项 | 必填 | 说明 |
 |--------|------|------|
-| database.mysql | 是 | MySQL 连接配置 |
-| database.milvus | 是 | Milvus 向量库配置 |
+| database.postgresql | 是 | PostgreSQL 连接配置（应用数据 + pgvector 向量数据） |
+| database.dgraph | 是 | Dgraph 图数据库地址，格式 `host:grpc_port`（compose 环境：`dgraph:9080`） |
 | LLM | 是 | 大语言模型配置，支持多实例 |
 | vector.embedding | 是 | 向量嵌入模型配置 |
 | rss | 是 | RSS 订阅源列表 |
@@ -419,20 +417,33 @@ Authorization: Bearer <jwt_token>
 
 #### news_search
 
-搜索 24 小时内的新闻内容。
+获取新闻内容，按类别与可选日期范围。
 
 **参数：**
-- `categories` (string, 可选): 内容分类，默认 "科技"
+- `categories` (string, 可选): 类别，逗号分隔支持多值。缺值时：24H 路径下默认 `科技`，日期范围路径下全部类别（`low_quality` 除外）
+- `start_date` (string, 可选): 开始日期 `YYYY-MM-DD`
+- `end_date` (string, 可选): 结束日期 `YYYY-MM-DD`，缺值时等于 `start_date`
+
+**两种路径（语义不同）：**
+
+| 调用形式 | 走 | 语义 |
+|---|---|---|
+| 不传日期 | `FindByCategory24H` | `created_at` 近 24H **且未读**（`time_stay=0`） |
+| 传日期 | `FindByDateRange(Categories)` | `date` 列整-day 闭区间 `[start 00:00, end 23:59:59]`，含已读 |
 
 **示例：**
 ```json
 {
   "name": "news_search",
   "arguments": {
-    "categories": "AI"
+    "start_date": "2025-11-20",
+    "end_date": "2025-11-22",
+    "categories": "AI,科技"
   }
 }
 ```
+
+> 日期范围上限 31 天，超出时返回错误；`start_date` 不能晚 than `end_date`。日期按应用本地时区（`config.go`里 set `time.Local`）。传日期时输出附带 `日期`/`类别` 行。
 
 #### news_categories
 
@@ -441,13 +452,6 @@ Authorization: Bearer <jwt_token>
 #### get_current_time
 
 获取当前时间。
-
-#### rag_search
-
-基于向量数据库的语义检索。
-
-**参数：**
-- `query` (string): 搜索查询
 
 ### 使用场景
 
@@ -461,9 +465,9 @@ Authorization: Bearer <jwt_token>
 
 ## 部署指南
 
-## 向量数据库申请
- 
-1. 访问 [Milvus](https://cloud.zilliz.com/ ) 官网。  免费5G空间
+## 数据库申请
+
+无外部申请必需，本地或 self-hosted PostgreSQL 16+（含 pgvector 扩展）即可。
 
 ## 模型申请
 
@@ -489,12 +493,23 @@ vim config/config.yaml
 
 
 
-使用 `deploy` 目录下的 Docker Compose 配置一键部署所有服务。
+使用 `deploy` 目录下的 Docker Compose 配置一键部署所有服务（PostgreSQL + pgvector、Dgraph、应用）。
 
 ```bash
-
-docker-compose up -d
+cd deploy && docker-compose up -d
 ```
+
+> 注意：应用挂载 `./config` 作为配置目录，在 compose 环境下 `database.postgresql.host` 和
+> `database.dgraph` 必须指向服务名（`postgres`、`dgraph:9080`），
+> 而非宿机 localhost。推荐部署配置：
+>
+> ```yaml
+> database:
+>   postgresql:
+>     host: "postgres"
+>     port: 5432
+>   dgraph: "dgraph:9080"
+> ```
 
 
 
@@ -550,7 +565,7 @@ A: 在配置文件的 `LLM` 数组中添加新配置，系统会自动负载均�
 
 **Q: 播客功能如何启用？**
 
-A: 配置 `byteDance` 节点的 `appID` 和 `accessToken`。
+A: 配置 `podcast.byteDance` 节点的 `appID` 和 `accessToken`。
 
 **Q: 如何查看详细日志？**
 

@@ -1,23 +1,29 @@
 services:
-  # MySQL 数据库
-  mysql:
-    container_name: podcast_mysql
-    image: mysql:5.7.18
+  # PostgreSQL 数据库（应用数据 + pgvector 向量数据）
+  # 迁移说明：v13c0c22 起向量库由 Milvus、关系库由 MySQL 统一迁移到 PostgreSQL + pgvector
+  postgres:
+    container_name: podcast_postgres
+    image: pgvector/pgvector:pg17
     ports:
-      - 3306:3306
+      - "5432:5432"
     environment:
-      - MYSQL_ROOT_PASSWORD=P@ssw0rd
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=postgres
+      - TZ=Asia/Shanghai
     restart: always
     ulimits:
       nofile:
         soft: 65535
         hard: 65535
+    volumes:
+      - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: mysql -uroot -p${MYSQL_PASSWORD} -e "show databases"
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 10s
       timeout: 3s
       retries: 3
-      start_period: 100s
+      start_period: 30s
     networks:
       - podcast-network
   # Dgraph 图数据库
@@ -51,9 +57,7 @@ services:
     environment:
       - TZ=Asia/Shanghai
     depends_on:
-      mysql:
-        condition: service_healthy
-      milvus:
+      postgres:
         condition: service_healthy
       dgraph:
         condition: service_healthy
@@ -65,3 +69,7 @@ networks:
   podcast-network:
     driver: bridge
 
+volumes:
+  postgres_data:
+  dgraph_data:
+  podcast_logs:
