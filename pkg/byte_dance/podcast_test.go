@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"podcast/internal/ai/llm"
 	"podcast/internal/database/models"
 
 	"podcast/config"
@@ -22,7 +21,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	llm.NewLLMPool(config.Cfg.LLM)
 }
 
 func TestParseScript(t *testing.T) {

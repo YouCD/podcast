@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"podcast/config"
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
 
@@ -106,15 +105,8 @@ func Test_rssContentDao_FindByDateRange(t *testing.T) {
 }
 
 func Test_rssContentDao_FindByID(t *testing.T) {
-	llmInfos := make([]*types.LLMInfo, 0)
-
-	llmPool := llm.NewLLMPool(llmInfos)
 	ctx := context.Background()
-	get, err := llmPool.Get(ctx)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("get llm error: %w", err)
-		return
-	}
+	llmInfo := config.Cfg.LLM.Normal
 	// 创建 RAG 引擎配置
 	ragCfg := &types.RagConfig{
 		PgVector: &types.PgVector{
@@ -130,7 +122,7 @@ func Test_rssContentDao_FindByID(t *testing.T) {
 			Model:  config.Cfg.Vector.Embedding.Model,
 		},
 	}
-	engine, err := rag.NewEngine(ctx, get, ragCfg)
+	engine, err := rag.NewEngine(ctx, llmInfo, ragCfg)
 	if err != nil {
 		t.Log("new engine error: %w", err)
 		return

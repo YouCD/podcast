@@ -65,25 +65,24 @@ func generatePodcastContent(ctx context.Context, state *graphState) (*graphState
 		return state, nil
 	}
 
-	llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "generatePodcastContent", format, openai.ChatCompletionResponseFormatTypeText, 5, 0, true)
+	// 校验失败时把错误原因反馈给模型自我修正；最终失败只跳过播客，不中断工作流
+	podcastText, llmInfo, err := common.RunModelGenerateReAct(ctx, state.llmInfo, "generatePodcastContent", format,
+		func(output string) (string, error) {
+			// 解析JSON格式的播客脚本，转换为纯文本格式
+			text, perr := parsePodcastJSON(output)
+			if perr == nil {
+				return text, nil
+			}
+			// 回退：接受纯文本对话格式
+			if strings.HasPrefix(strings.TrimSpace(output), "[S1]") || strings.HasPrefix(strings.TrimSpace(output), "[S2]") {
+				return output, nil
+			}
+			return "", fmt.Errorf("播客脚本格式错误(%v)，请返回JSON对话数组或[S1]/[S2]开头的纯文本", perr)
+		},
+		3, 5, 0, true, openai.ChatCompletionResponseFormatTypeText)
 	if err != nil {
-		// LLM 调用失败时，记录错误但不中断工作流
-		log.WithCtx(ctx).Errorw("播客内容 LLM 生成失败", "error", err)
+		log.WithCtx(ctx).Errorw("播客内容生成失败，跳过", "provider", llmInfo, "llmResult", podcastText, "err", err)
 		return state, nil
-	}
-
-	// 解析JSON格式的播客脚本，转换为纯文本格式
-	podcastText, err := parsePodcastJSON(llmResult)
-	if err != nil {
-		log.WithCtx(ctx).Errorw("JSON解析失败，尝试直接使用原始输出", "error", err)
-		// 如果JSON解析失败，检查是否是纯文本格式
-		if strings.HasPrefix(strings.TrimSpace(llmResult), "[S1]") || strings.HasPrefix(strings.TrimSpace(llmResult), "[S2]") {
-			podcastText = llmResult // 直接使用原始输出
-		} else {
-			// 格式错误时，记录警告但不中断工作流
-			log.WithCtx(ctx).Warnw("播客脚本格式错误，既不是合法JSON也不是纯文本格式", "error", err)
-			return state, nil
-		}
 	}
 
 	state.Report.PodcastContent = podcastText

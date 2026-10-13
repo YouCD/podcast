@@ -10,4 +10,5 @@ var (
 	ErrBodyError             = errors.New("error body")
 	ErrContentIsEmpty        = errors.New("content is empty")
 	ErrContentIsToShort      = errors.New("content is to short")
+	ErrInvalidReportQuestion = errors.New("invalid report question format")
 )

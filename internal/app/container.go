@@ -33,7 +33,7 @@ type Container struct {
 	TemplateSvc *service.TemplateService
 	// AI 组件
 	Embedding *embedding.Embedder
-	LLMPool   *llm.LLMPool
+	LLM       *llm.Models // 双模型：Summary（报表/agent）+ Normal（其余）
 	PgVector  *pgvector.PgVector
 
 	// RAG Agent 配置
@@ -76,16 +76,12 @@ func New(ctx context.Context, cfg *config.Config, db *gorm.DB) (*Container, erro
 	}
 	c.Embedding = emb
 
-	// 转换 LLM 配置
-	maxConcurrency := 0
-	if cfg.Global != nil {
-		maxConcurrency = cfg.Global.MaxConcurrency
+	// 初始化双模型（总结模型 + 普通模型）
+	models, err := llm.NewModels(cfg.LLM.Summary, cfg.LLM.Normal)
+	if err != nil {
+		return nil, fmt.Errorf("初始化 LLM 失败: %w", err)
 	}
-	if maxConcurrency > 0 {
-		c.LLMPool = llm.NewLLMPool(cfg.LLM, maxConcurrency)
-	} else {
-		c.LLMPool = llm.NewLLMPool(cfg.LLM)
-	}
+	c.LLM = models
 
 	c.PgVector = pgvector.NewPgVector(context.Background(), cfg.Database.PostgreSQL.ToPgVector())
 	c.MCPConfig = &agent.MCPConfig{

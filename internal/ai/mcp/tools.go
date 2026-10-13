@@ -170,12 +170,7 @@ func GetCurrentTime(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResu
 func (m *MCPServer) RagSearch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	query := request.GetString("query", "")
 
-	pool := m.llmPool
-	llmInfo, err := pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("获取 LLM 信息失败：%w", err)
-	}
-	defer pool.Put(ctx, llmInfo)
+	llmInfo := m.llmInfo
 	// 初始化 RAG 引擎
 	ragEngine, err := rag.NewEngine(ctx, llmInfo, m.ragCfg)
 	if err != nil {

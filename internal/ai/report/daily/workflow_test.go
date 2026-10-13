@@ -2,7 +2,6 @@ package daily
 
 import (
 	"context"
-	"podcast/internal/ai/llm"
 	"testing"
 	"time"
 
@@ -26,20 +25,27 @@ func init() {
 
 func TestNew(t *testing.T) {
 	ctx := context.Background()
-	pool := llm.NewLLMPool(config.Cfg.LLM)
 	location := time.Now().Location()
-	startDate := time.Date(2026, 9, 17, 0, 0, 0, 0, location)
-	endDate := time.Date(2026, 9, 17, 23, 59, 59, 0, location)
 
-	dailyReport, err := New(ctx, config.Cfg.Podcast, pool, startDate, endDate)
-	if err != nil {
-		panic(err)
+	ds := []int{4, 8, 9, }
+
+	for _, d := range ds {
+
+		// 23 24 26 27 28 29 30
+		startDate := time.Date(2026, 10, d, 0, 0, 0, 0, location)
+		endDate := time.Date(2026, 10, d, 23, 59, 59, 0, location)
+
+		dailyReport, err := New(ctx, config.Cfg.Podcast, config.Cfg.LLM.Summary, startDate, endDate)
+		if err != nil {
+			panic(err)
+		}
+		now := time.Now()
+		_, err = dailyReport.Invoke(ctx, 0)
+		if err != nil {
+			log.WithCtx(ctx).Errorf("每日报告任务失败,持续时间：%s, err: %s", time.Since(now), err)
+			return
+		}
+		log.WithCtx(ctx).Infof("每日报告任务执行完成，持续时间：%s", time.Since(now))
 	}
-	now := time.Now()
-	_, err = dailyReport.Invoke(ctx, 0)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("每日报告任务失败,持续时间：%s, err: %s", time.Since(now), err)
-		return
-	}
-	log.WithCtx(ctx).Infof("每日报告任务执行完成，持续时间：%s", time.Since(now))
+
 }

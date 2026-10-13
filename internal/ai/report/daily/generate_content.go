@@ -37,24 +37,19 @@ func generateContent(ctx context.Context, state *graphState) (*graphState, error
 	if err != nil {
 		return state, err
 	}
-	var count int
-Retry:
-	llmResult, llmInfo, err := common.RunModelGenerate(ctx, state.llmPool, "generateContent", format, openai.ChatCompletionResponseFormatTypeText, 5, 0, false)
+	llmResult, llmInfo, err := common.RunModelGenerateReAct(ctx, state.llmInfo, "generateContent", format,
+		func(output string) (string, error) {
+			if len([]rune(output)) < 100 {
+				return "", fmt.Errorf("%w: 仅 %d 字，请基于给定素材写出完整的日报（不少于100字）", ErrContentIsToShort, len([]rune(output)))
+			}
+			return StripThinkContent(output), nil
+		},
+		3, 5, 0, false, openai.ChatCompletionResponseFormatTypeText)
 	if err != nil {
+		log.WithCtx(ctx).Errorw("generateContent", "provider", llmInfo, "llmResult", llmResult, "err", err)
 		return state, err
 	}
-
-	if len([]rune(llmResult)) < 100 {
-		count++
-		if count < 3 {
-			log.WithCtx(ctx).Warnw("generateContent", "provider", llmInfo, "llmResult", llmResult)
-			goto Retry
-		}
-	}
-	if len([]rune(llmResult)) < 100 {
-		return state, ErrContentIsToShort
-	}
-	state.Report.Content = StripThinkContent(llmResult)
+	state.Report.Content = llmResult
 	log.WithCtx(ctx).Infof("Markdown 内容生成完成")
 	return state, nil
 }

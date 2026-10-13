@@ -34,7 +34,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 
 	rssHandler := handlers.NewRssHandler(container.RssSvc, container.Cfg.Global.ContentLen, container.Cfg.Database.Dgraph)
 	userHandler := handlers.NewUserHandler(container.UserSvc)
-	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast, container.LLMPool)
+	reportsHandler := handlers.NewReportsHandler(container.ReportSvc, container.Cfg.Podcast, container.LLM.Summary)
 	keyinfosHandler := handlers.NewKeyInfoHandler(container.KeyInfoSvc)
 	ragCfg := &types.RagConfig{
 		PgVector:   container.Cfg.Database.PostgreSQL.ToPgVector(),
@@ -44,8 +44,8 @@ func SetupRouter(container *app.Container) *gin.Engine {
 	chatHandler := handlers.NewChatHandler(container.Chat, &agent.RAGAgentConfig{
 		MCP:       container.MCPConfig,
 		RagConfig: ragCfg,
-		LLMPool:   container.LLMPool,
-	}, container.LLMPool)
+		LLMInfo:   container.LLM.Summary,
+	}, container.LLM.Normal)
 	promptHandler := handlers.NewPromptHandler(container.PromptSvc)
 	templateHandler := handlers.NewTemplateHandler(container.TemplateSvc)
 
@@ -55,7 +55,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 		token = container.Cfg.Global.Token
 		logLevel = container.Cfg.Global.LogLevel
 	}
-	mcp.NewMCPServer(token, ragCfg, container.Cfg.MCPProxy, container.LLMPool).RunWithGin(r)
+	mcp.NewMCPServer(token, ragCfg, container.Cfg.MCPProxy, container.LLM.Normal).RunWithGin(r)
 	r.Use(StaticServe(dist.Dist))
 	r.Use(handlers.RequestIDMiddleware())
 	r.Use(handlers.CorsMiddleware())

@@ -268,12 +268,18 @@ database:
     score: 0.78
   dgraph: "localhost:9080"
 
-# 大语言模型配置 (支持多个，自动负载均衡)
-LLM:
-  - apiKey: "your-api-key"
+# 双模型配置：
+#   summary 总结模型：处理报表（internal/ai/report）与智能体（internal/ai/agent）
+#   normal  普通模型：处理其余请求（RSS 工作流、MCP、聊天等）
+llm:
+  summary:
+    apiKey: "your-summary-api-key"
     baseURL: "https://api.openai.com/v1"
     model: "gpt-4"
-    prompt: "你是一个专业的技术分析师"
+  normal:
+    apiKey: "your-normal-api-key"
+    baseURL: "https://api.openai.com/v1"
+    model: "gpt-4o-mini"
 
 # 向量嵌入配置
 vector:
@@ -331,7 +337,8 @@ podcast:
 |--------|------|------|
 | database.postgresql | 是 | PostgreSQL 连接配置（应用数据 + pgvector 向量数据） |
 | database.dgraph | 是 | Dgraph 图数据库地址，格式 `host:grpc_port`（compose 环境：`dgraph:9080`） |
-| LLM | 是 | 大语言模型配置，支持多实例 |
+| llm.summary | 是 | 总结模型，供报表与智能体使用 |
+| llm.normal | 是 | 普通模型，供其余请求使用 |
 | vector.embedding | 是 | 向量嵌入模型配置 |
 | rss | 是 | RSS 订阅源列表 |
 | global.hostPort | 是 | 服务监听地址 |
@@ -559,9 +566,9 @@ rss:
 
 A: 修改配置文件中 `global.hostPort` 的值。
 
-**Q: 如何添加新的 LLM 提供商？**
+**Q: 两个 LLM 模型分别做什么？**
 
-A: 在配置文件的 `LLM` 数组中添加新配置，系统会自动负载均衡。
+A: `llm.summary`（总结模型）处理报表（`internal/ai/report`）与智能体（`internal/ai/agent`）的生成类请求；`llm.normal`（普通模型）处理其余请求（RSS 分类/分析/图谱、MCP 检索、聊天标题等）。两者可指向同一或不同的模型。
 
 **Q: 播客功能如何启用？**
 

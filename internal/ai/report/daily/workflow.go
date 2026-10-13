@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"podcast/internal/ai/llm"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
 
@@ -20,7 +19,7 @@ type graphState struct {
 	endDate     time.Time
 	rssContents []*models.RssContent
 	isNewReport bool
-	llmPool     *llm.LLMPool
+	llmInfo     *types.LLMInfo // 总结模型（报表专用）
 }
 
 func init() {
@@ -35,7 +34,7 @@ func init() {
 	})
 }
 
-func buildDailyWorkflow(cfg *types.Podcast, llmPool *llm.LLMPool, sTime, eTime time.Time) *compose.Graph[int, *graphState] {
+func buildDailyWorkflow(cfg *types.Podcast, llmInfo *types.LLMInfo, sTime, eTime time.Time) *compose.Graph[int, *graphState] {
 	graph := compose.NewGraph[int, *graphState]()
 
 	// 节点 1: 创建报告对象
@@ -44,7 +43,7 @@ func buildDailyWorkflow(cfg *types.Podcast, llmPool *llm.LLMPool, sTime, eTime t
 		if err != nil {
 			return nil, err
 		}
-		state.llmPool = llmPool
+		state.llmInfo = llmInfo
 		return state, nil
 	}))
 
@@ -97,9 +96,9 @@ func buildDailyWorkflow(cfg *types.Podcast, llmPool *llm.LLMPool, sTime, eTime t
 	return graph
 }
 
-func New(ctx context.Context, cfg *types.Podcast, llmPool *llm.LLMPool, sTime, eTime time.Time) (compose.Runnable[int, *graphState], error) {
+func New(ctx context.Context, cfg *types.Podcast, llmInfo *types.LLMInfo, sTime, eTime time.Time) (compose.Runnable[int, *graphState], error) {
 	// 构建工作流
-	workflow := buildDailyWorkflow(cfg, llmPool, sTime, eTime)
+	workflow := buildDailyWorkflow(cfg, llmInfo, sTime, eTime)
 	// 编译（启用流式处理和回调）
 	// 使用 AllPredecessor 模式，确保 save_report 等待所有前驱节点完成后再执行
 	runnable, err := workflow.Compile(ctx, compose.WithNodeTriggerMode(compose.AllPredecessor))

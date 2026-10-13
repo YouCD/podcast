@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"podcast/config"
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
 	"podcast/internal/database/models"
 	"podcast/pkg/types"
@@ -28,22 +27,8 @@ func main() {
 		panic(err)
 	}
 
-	// 转换 LLM 配置
-	llmInfos := make([]*types.LLMInfo, len(c.LLM))
-	for i, llmCfg := range c.LLM {
-		llmInfos[i] = &types.LLMInfo{
-			ID:      int64(i),
-			ApiKey:  llmCfg.ApiKey,
-			Model:   llmCfg.Model,
-			BaseURL: llmCfg.BaseURL,
-		}
-	}
-	llmPool := llm.NewLLMPool(llmInfos)
-	llmInfo, err := llmPool.Get(ctx)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Get error: %w", err)
-		return
-	}
+	// 使用普通模型
+	llmInfo := c.LLM.Normal
 
 	// 创建 RAG 引擎配置
 	ragCfg := &types.RagConfig{

@@ -51,38 +51,6 @@ func generatePodcastVideo(ctx context.Context, cfg *types.Podcast, state *graphS
 	return state, nil
 }
 
-func genPodcastVideoA(ctx context.Context, data string) (string, error) {
-	// 创建请求数据
-	//nolint:modernize
-	jsonData := []byte(fmt.Sprintf(`{
-    "data": [
-        %#v
-    ]
-}`, data))
-
-	log.WithCtx(ctx).Debug(string(jsonData))
-
-	// 发送POST请求获取EVENT_ID
-	eventID, err := getEventID(ctx, jsonData)
-	if err != nil {
-		log.WithCtx(ctx).Error(err)
-		return "", fmt.Errorf("failed to get event ID: %w", err)
-	}
-
-	log.WithCtx(ctx).Debugf("Event ID: %s", eventID)
-	// 使用EVENT_ID发送GET请求获取结果
-	audioURL, err := streamResult(ctx, eventID)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Event ID: %s", eventID)
-		return "", err
-	}
-
-	if audioURL != "" {
-		log.WithCtx(ctx).Infof("Audio URL extracted: %s", audioURL)
-		return audioURL, nil
-	}
-	return "", ErrNoAudioURL
-}
 
 func getEventID(ctx context.Context, jsonData []byte) (string, error) {
 	// 创建HTTP请求

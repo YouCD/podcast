@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"podcast/internal/ai/llm"
 	"podcast/pkg/types"
 
 	"github.com/gin-gonic/gin"
@@ -22,10 +21,10 @@ type MCPServer struct {
 	token    string
 	ragCfg   *types.RagConfig
 	MCPProxy map[string]*types.Mcp
-	llmPool  *llm.LLMPool
+	llmInfo  *types.LLMInfo // 普通模型
 }
 
-func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types.Mcp, llmPool *llm.LLMPool) *MCPServer {
+func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types.Mcp, llmInfo *types.LLMInfo) *MCPServer {
 	s := server.NewMCPServer(
 		"YCD-MCP",
 		"1.0.0",
@@ -33,7 +32,7 @@ func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types
 		server.WithInstructions("新闻咨询助手，请输入指令进行操作。"),
 	)
 
-	return &MCPServer{s, token, cfg, MCPProxy, llmPool}
+	return &MCPServer{s, token, cfg, MCPProxy, llmInfo}
 }
 
 func (s *MCPServer) RunWithGin(router *gin.Engine) {

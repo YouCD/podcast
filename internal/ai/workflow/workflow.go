@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"podcast/internal/ai/embedding"
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/pgvector"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
@@ -25,7 +24,7 @@ type graphState struct {
 	Categorization map[*types.RSSItem]string
 	LlmResult      []*types.RSSItem
 	Errors         []error
-	llmPool        *llm.LLMPool
+	llmInfo        *types.LLMInfo
 	maxConcurrency int64 // 最大并发数
 	llmTimeout     time.Duration
 }
@@ -35,13 +34,13 @@ type RSSWorkflow struct {
 	cfg            *types.RagConfig
 	deduplicator   *Deduplicator
 	pgVector       *pgvector.PgVector
-	llmPool        *llm.LLMPool
+	llmInfo        *types.LLMInfo
 	maxConcurrency int64
 	llmTimeout     time.Duration
 }
 
-// NewRSSWorkflow 创建RSS工作流实例
-func NewRSSWorkflow(ctx context.Context, cfg *types.RagConfig, llmPool *llm.LLMPool, maxConcurrency ...int64) (*RSSWorkflow, error) {
+// NewRSSWorkflow 创建RSS工作流实例（llmInfo 为普通模型）
+func NewRSSWorkflow(ctx context.Context, cfg *types.RagConfig, llmInfo *types.LLMInfo, maxConcurrency ...int64) (*RSSWorkflow, error) {
 	// 初始化 pgvector 客户端
 	pgVector := pgvector.NewPgVector(ctx, cfg.PgVector)
 
@@ -97,7 +96,7 @@ func NewRSSWorkflow(ctx context.Context, cfg *types.RagConfig, llmPool *llm.LLMP
 		cfg:            cfg,
 		deduplicator:   deduplicator,
 		pgVector:       pgVector,
-		llmPool:        llmPool,
+		llmInfo:        llmInfo,
 		maxConcurrency: concurrency,
 		llmTimeout:     llmTimeout,
 	}, nil
@@ -120,7 +119,7 @@ func (w *RSSWorkflow) buildGraph() *compose.Graph[[]*types.RSSSource, []*types.R
 
 	// 节点 4: 并行分类处理
 	_ = graph.AddLambdaNode("categorization", compose.InvokableLambda(func(ctx context.Context, state *graphState) (*graphState, error) {
-		state.llmPool = w.llmPool
+		state.llmInfo = w.llmInfo
 		state.maxConcurrency = w.maxConcurrency
 		state.llmTimeout = w.llmTimeout
 		return categorization(ctx, state)
@@ -128,7 +127,7 @@ func (w *RSSWorkflow) buildGraph() *compose.Graph[[]*types.RSSSource, []*types.R
 
 	// 节点 5: rss内容分析
 	_ = graph.AddLambdaNode("analyze_rss", compose.InvokableLambda(func(ctx context.Context, state *graphState) (*graphState, error) {
-		state.llmPool = w.llmPool
+		state.llmInfo = w.llmInfo
 		state.maxConcurrency = w.maxConcurrency
 		state.llmTimeout = w.llmTimeout
 		return analyzeRss(ctx, state)
@@ -136,7 +135,7 @@ func (w *RSSWorkflow) buildGraph() *compose.Graph[[]*types.RSSSource, []*types.R
 
 	// 节点 7: 关系分析
 	_ = graph.AddLambdaNode("dgraph", compose.InvokableLambda(func(ctx context.Context, state *graphState) ([]*types.RSSItem, error) {
-		state.llmPool = w.llmPool
+		state.llmInfo = w.llmInfo
 		state.maxConcurrency = w.maxConcurrency
 		state.llmTimeout = w.llmTimeout
 		return dgraph(ctx, state)
@@ -144,7 +143,7 @@ func (w *RSSWorkflow) buildGraph() *compose.Graph[[]*types.RSSSource, []*types.R
 
 	// 节点 8: 保存
 	_ = graph.AddLambdaNode("save", compose.InvokableLambda(func(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, error) {
-		return save(ctx, rssItems, w.cfg, w.llmPool, w.pgVector)
+		return save(ctx, rssItems, w.cfg, w.llmInfo, w.pgVector)
 	}))
 
 	// 编排
@@ -202,8 +201,8 @@ func (w *RSSWorkflow) StartCacheManager(ctx context.Context) {
 
 // New 创建工作流（兼容旧接口，推荐使用 NewRSSWorkflow）
 // Deprecated: 请使用 NewRSSWorkflow
-func New(ctx context.Context, cfg *types.RagConfig, llmPool *llm.LLMPool, maxConcurrency ...int64) (compose.Runnable[[]*types.RSSSource, []*types.RSSItem], error) {
-	workflow, err := NewRSSWorkflow(ctx, cfg, llmPool, maxConcurrency...)
+func New(ctx context.Context, cfg *types.RagConfig, llmInfo *types.LLMInfo, maxConcurrency ...int64) (compose.Runnable[[]*types.RSSSource, []*types.RSSItem], error) {
+	workflow, err := NewRSSWorkflow(ctx, cfg, llmInfo, maxConcurrency...)
 	if err != nil {
 		return nil, err
 	}

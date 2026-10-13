@@ -8,7 +8,6 @@ import (
 	"text/template"
 	"time"
 
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/report/daily"
 	"podcast/internal/service"
 	"podcast/pkg/types"
@@ -33,13 +32,13 @@ type ReportResponse struct {
 type ReportsHandler struct {
 	reportService *service.ReportService
 	podcastCfg    *types.Podcast
-	llmPool       *llm.LLMPool
-	generating    sync.Map // reportID(int) -> struct{}，记录生成中的报告，防止并发重复触发
+	llmInfo       *types.LLMInfo // 总结模型（报表专用）
+	generating    sync.Map       // reportID(int) -> struct{}，记录生成中的报告，防止并发重复触发
 }
 
-// NewReportsHandler 创建报告处理器
-func NewReportsHandler(reportService *service.ReportService, podcastCfg *types.Podcast, llmPool *llm.LLMPool) *ReportsHandler {
-	return &ReportsHandler{reportService: reportService, podcastCfg: podcastCfg, llmPool: llmPool, generating: sync.Map{}}
+// NewReportsHandler 创建报告处理器（llmInfo 为总结模型）
+func NewReportsHandler(reportService *service.ReportService, podcastCfg *types.Podcast, llmInfo *types.LLMInfo) *ReportsHandler {
+	return &ReportsHandler{reportService: reportService, podcastCfg: podcastCfg, llmInfo: llmInfo, generating: sync.Map{}}
 }
 
 // GetReports 获取所有report列表，但不包含LLMResult
@@ -137,7 +136,7 @@ func (r *ReportsHandler) startGeneration(ctx context.Context, id int) {
 		defer r.generating.Delete(id)
 		// 脱离请求取消，保留 request_id 等值，避免响应写完后后台任务被取消
 		bctx := context.WithoutCancel(ctx)
-		c2, err := daily.New(bctx, r.podcastCfg, r.llmPool, time.Time{}, time.Time{})
+		c2, err := daily.New(bctx, r.podcastCfg, r.llmInfo, time.Time{}, time.Time{})
 		if err != nil {
 			log.WithCtx(bctx).Errorf("创建报告生成器失败: %v", err)
 			return

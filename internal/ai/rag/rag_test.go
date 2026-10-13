@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"podcast/config"
-	"podcast/internal/ai/llm"
+	"podcast/pkg/types"
 
 	"github.com/youcd/toolkit/log"
 )
@@ -20,14 +20,14 @@ func init() {
 }
 
 func TestEngine_Query(t *testing.T) {
-	llmPool := llm.NewLLMPool()
 	ctx := context.Background()
-	llmInfo, err := llmPool.Get(ctx)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Get error: %w", err)
-		return
+	llmInfo := config.Cfg.LLM.Normal
+	// 创建 RAG 引擎配置
+	ragCfg := &types.RagConfig{
+		PgVector: config.Cfg.Database.PostgreSQL.ToPgVector(),
+		Embedding: config.Cfg.Vector.Embedding,
 	}
-	ragCli, err := NewEngine(ctx, llmInfo)
+	ragCli, err := NewEngine(ctx, llmInfo, ragCfg)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("NewEngine error: %w", err)
 		return

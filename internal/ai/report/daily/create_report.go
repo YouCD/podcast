@@ -16,6 +16,16 @@ func createReport(ctx context.Context, reportID int, sTime, eTime time.Time) (*g
 	if !sTime.IsZero() && !eTime.IsZero() {
 		question := fmt.Sprintf("日报-%s", sTime.Format("2006-01-02"))
 
+		// 检查是否已存在同日的报告：存在则原地更新，避免重复插入
+		reportDao := dao.NewReportDao(models.GetDb())
+		if existing, err := reportDao.GetRepoByQuestion(ctx, question); err == nil && existing != nil {
+			return &graphState{
+				Report:    existing,
+				startDate: sTime,
+				endDate:   eTime,
+			}, nil
+		}
+
 		return &graphState{ // 创建新报告
 			Report: &models.Report{
 				TimeArray: fmt.Sprintf("%s~%s", sTime.Format("15:04:05"), eTime.Format("15:04:05")),
@@ -77,14 +87,16 @@ func getExistingReport(ctx context.Context, id int) (*models.Report, time.Time, 
 	}
 	var startTime, endTime time.Time
 	split := strings.Split(report.Question, "日报-")
-	if len(split) > 0 {
-		startDate, err := time.Parse("2006-01-02", split[1])
-		if err != nil {
-			log.WithCtx(ctx).Error(err)
-			return nil, time.Time{}, time.Time{}, report.Question, nil
-		}
-		startTime = startDate
-		endTime = startTime.AddDate(0, 0, 1).Add(-time.Second)
+	if len(split) < 2 {
+		log.WithCtx(ctx).Errorf("report question 格式异常，无法解析日期: %s", report.Question)
+		return nil, time.Time{}, time.Time{}, report.Question, ErrInvalidReportQuestion
 	}
+	startDate, err := time.Parse("2006-01-02", split[1])
+	if err != nil {
+		log.WithCtx(ctx).Errorf("report question 日期解析失败: %s, err: %v", report.Question, err)
+		return nil, time.Time{}, time.Time{}, report.Question, ErrInvalidReportQuestion
+	}
+	startTime = startDate
+	endTime = startTime.AddDate(0, 0, 1).Add(-time.Second)
 	return report, startTime, endTime, report.Question, nil
 }

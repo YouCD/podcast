@@ -76,9 +76,9 @@ var rootCmd = &cobra.Command{
 				Embedding:  config.Cfg.Vector.Embedding,
 				DgraphHost: config.Cfg.Database.Dgraph,
 				LLMTimeout: time.Duration(config.Cfg.Global.LLMTimeout) * time.Second,
-			}, config.Cfg.RSS, container.LLMPool, config.Cfg.Global.MaxConcurrency)
+			}, config.Cfg.RSS, container.LLM.Normal, config.Cfg.Global.MaxConcurrency)
 			// 启动报告定时任务
-			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast, container.LLMPool)
+			cron.StartReportJob(ctx, config.Cfg.Report, config.Cfg.Podcast, container.LLM.Summary)
 		}()
 		r := routes.SetupRouter(container)
 		// 在 goroutine 中启动服务

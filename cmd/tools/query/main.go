@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"podcast/config"
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/rag"
 	"podcast/pkg/types"
 
@@ -21,22 +20,8 @@ func main() {
 	log.WithCtx(context.Background()).Infof("%#v", c)
 
 	ctx := context.Background()
-	// 转换 LLM 配置
-	llmInfos := make([]*types.LLMInfo, len(c.LLM))
-	for i, llmCfg := range c.LLM {
-		llmInfos[i] = &types.LLMInfo{
-			ID:      int64(i),
-			ApiKey:  llmCfg.ApiKey,
-			Model:   llmCfg.Model,
-			BaseURL: llmCfg.BaseURL,
-		}
-	}
-	llmPool := llm.NewLLMPool(llmInfos)
-	get, err := llmPool.Get(ctx)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Get error: %w", err)
-		return
-	}
+	// 使用普通模型
+	llmInfo := c.LLM.Normal
 	ragCfg := &types.RagConfig{
 		PgVector: &types.PgVector{
 			Host:          c.Database.PostgreSQL.Host,
@@ -51,7 +36,7 @@ func main() {
 			Model:  c.Vector.Embedding.Model,
 		},
 	}
-	ragCli, err := rag.NewEngine(ctx, get, ragCfg)
+	ragCli, err := rag.NewEngine(ctx, llmInfo, ragCfg)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("NewEngine error: %w", err)
 		return

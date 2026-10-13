@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -15,6 +16,9 @@ import (
 )
 
 var Cfg *Config
+
+// ErrLLMIncomplete LLM 双模型配置不完整（缺少 summary 或 normal）
+var ErrLLMIncomplete = errors.New("LLM 配置不完整：需同时配置 llm.summary（总结模型）与 llm.normal（普通模型）")
 
 const UA = "PodCast"
 
@@ -73,14 +77,20 @@ type vector struct {
 	Embedding *types.Embedding `yaml:"embedding" json:"embedding"`
 }
 
+// LLM 双模型配置：总结模型 + 普通模型
+type LLM struct {
+	// Summary 总结模型：处理报表（internal/ai/report）与智能体（internal/ai/agent）
+	Summary *types.LLMInfo `yaml:"summary" json:"summary"`
+	// Normal 普通模型：处理其余请求（RSS 工作流、MCP、聊天等）
+	Normal *types.LLMInfo `yaml:"normal" json:"normal"`
+}
+
 // Config 应用配置（导出供依赖注入使用）
-//
-//nolint:all
 type Config struct {
 	Database *Database             `json:"database" yaml:"database"`
 	RSS      []*types.RSSSource    `json:"rss" yaml:"rss"`
 	Global   *Global               `json:"global" yaml:"global"`
-	LLM      []*types.LLMInfo      `json:"LLM" yaml:"LLM"`
+	LLM      *LLM                  `json:"llm" yaml:"llm"`
 	Vector   vector                `json:"vector" yaml:"vector"`
 	Report   []*types.Report       `json:"report" yaml:"report"`
 	MCPProxy map[string]*types.Mcp `json:"mcpProxy" yaml:"mcpProxy"`
@@ -104,6 +114,11 @@ func LoadAppConfig(fileName string) (*Config, error) {
 	Cfg = &Config{}
 	if err := viper.Unmarshal(Cfg); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
+	}
+
+	// 校验双模型配置
+	if Cfg.LLM == nil || Cfg.LLM.Summary == nil || Cfg.LLM.Normal == nil {
+		return nil, ErrLLMIncomplete
 	}
 
 	logConfig := &log.Config{

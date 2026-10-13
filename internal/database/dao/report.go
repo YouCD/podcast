@@ -69,7 +69,7 @@ func (r *reportDao) GetAllReportsByGenre(ctx context.Context, genre int) ([]*mod
 	// 构造本月的第一天，小时、分钟、秒和纳秒都设为0
 	firstDayOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
-	err := r.db.Model(&models.Report{}).WithContext(ctx).Where("genre = ? AND created_at >= ?", genre, firstDayOfMonth).Order("created_at DESC").Scan(&reportList).Error
+	err := r.db.Model(&models.Report{}).WithContext(ctx).Where("genre = ? AND created_at >= ?", genre, firstDayOfMonth).Order("question DESC").Scan(&reportList).Error
 	return reportList, err
 }
 

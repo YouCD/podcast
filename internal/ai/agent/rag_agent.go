@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"podcast/internal/ai/llm"
 
 	"podcast/pkg/types"
 
@@ -31,7 +30,7 @@ const (
 type RAGAgentConfig struct {
 	MCP       *MCPConfig
 	RagConfig *types.RagConfig
-	LLMPool   *llm.LLMPool
+	LLMInfo   *types.LLMInfo // 总结模型（agent 专用）
 	// Agent 模式，默认为 Plan-Execute
 	Mode AgentMode
 	// 最大重规划次数（仅 Plan-Execute 模式有效）
@@ -54,8 +53,8 @@ func NewAgent(ctx context.Context, cfg *RAGAgentConfig) (*RAGAgent, error) {
 		return nil, err
 	}
 
-	// 创建 ChatModel
-	m, err := NewRetryChatModel(ctx, cfg.LLMPool, 5, defaultBackoff, openai.ChatCompletionResponseFormatTypeText)
+	// 创建 ChatModel（agent 使用总结模型）
+	m, err := NewRetryChatModel(ctx, cfg.LLMInfo, 5, defaultBackoff, openai.ChatCompletionResponseFormatTypeText)
 	if err != nil {
 		log.WithCtx(ctx).Error("Failed to init retry model", err)
 		return nil, err
@@ -151,13 +150,6 @@ func (r *RAGAgent) Stream(ctx context.Context, input *schema.Message, messageHan
 		return r.streamPlanExecute(ctx, input, messageHandler)
 	default:
 		return r.streamPlanExecute(ctx, input, messageHandler)
-	}
-}
-
-// Release 释放资源
-func (r *RAGAgent) Release(ctx context.Context) {
-	if retryModel, ok := r.chatModel.(*retryChatModel); ok {
-		retryModel.Release(ctx)
 	}
 }
 

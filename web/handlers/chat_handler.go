@@ -19,12 +19,12 @@ import (
 type ChatHandler struct {
 	chatService *service.ChatService
 	ragCfg      *agent.RAGAgentConfig
-	llmPool     *llm.LLMPool
+	llmInfo     *types.LLMInfo // 普通模型（会话标题生成等）
 }
 
 // NewChatHandler 创建新的聊天处理器
-func NewChatHandler(chatService *service.ChatService, ragCfg *agent.RAGAgentConfig, llmPool *llm.LLMPool) *ChatHandler {
-	return &ChatHandler{chatService: chatService, ragCfg: ragCfg, llmPool: llmPool}
+func NewChatHandler(chatService *service.ChatService, ragCfg *agent.RAGAgentConfig, llmInfo *types.LLMInfo) *ChatHandler {
+	return &ChatHandler{chatService: chatService, ragCfg: ragCfg, llmInfo: llmInfo}
 }
 
 // GetChatHistory 根据会话ID获取聊天记录
@@ -181,16 +181,8 @@ func (h *ChatHandler) ChangeTitle(c *gin.Context) {
 		return
 	}
 
-	// 2. 调用 LLM 生成标题
-	pool := h.llmPool
-	llmInfo, err := pool.Get(c)
-	if err != nil {
-		ErrorWithMessage(c, "Failed to get LLM info: "+err.Error())
-		return
-	}
-	defer pool.Put(c, llmInfo)
-
-	title, err := llm.ConversationTitle(c, llmInfo, req.Message)
+	// 2. 调用 LLM 生成标题（普通模型）
+	title, err := llm.ConversationTitle(c, h.llmInfo, req.Message)
 	if err != nil {
 		ErrorWithMessage(c, "Failed to generate title: "+err.Error())
 		return

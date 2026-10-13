@@ -8,9 +8,17 @@ database:
     dbName: "podcast"
   # 图数据库
   dgraph: localhost:9080
+# 双模型配置：
+#   summary 总结模型：处理报表（internal/ai/report）与智能体（internal/ai/agent）
+#   normal  普通模型：处理其余请求（RSS 工作流、MCP、聊天等）
 # 1. 访问 [ModelScope](https://modelscope.cn/my/access/token) 官网。   `2000/每日`免费
 llm:
-  - apiKey: "token"
+  summary:
+    apiKey: "token"
+    baseURL: "https://api.xiaomimimo.com/v1"
+    model: "mimo-v2-flash"
+  normal:
+    apiKey: "token"
     baseURL: "https://api.xiaomimimo.com/v1"
     model: "mimo-v2-flash"
 

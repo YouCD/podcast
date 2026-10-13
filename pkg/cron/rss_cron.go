@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"podcast/internal/ai/llm"
 	"podcast/internal/ai/report/daily"
 	"podcast/internal/ai/report/weekday_month"
 	"podcast/internal/ai/workflow"
@@ -18,13 +17,13 @@ import (
 
 var rssProcessingMutex sync.Mutex // 用于保证同一时间只有一个 RSS 处理任务运行
 
-// StartRSSCronJob 启动定时爬取 RSS 任务
-func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSSSource, llmPool *llm.LLMPool, maxConcurrency int) {
+// StartRSSCronJob 启动定时爬取 RSS 任务（llmInfo 为普通模型）
+func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSSSource, llmInfo *types.LLMInfo, maxConcurrency int) {
 	// 获取应用配置中的 RSS 配置
 	c := cron.New()
 
 	// 创建处理器
-	workFlow, err := workflow.New(ctx, cfg, llmPool, int64(maxConcurrency))
+	workFlow, err := workflow.New(ctx, cfg, llmInfo, int64(maxConcurrency))
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建处理器失败: %v", err)
 		return
@@ -77,10 +76,10 @@ func StartRSSCronJob(ctx context.Context, cfg *types.RagConfig, RSS []*types.RSS
 	log.WithCtx(ctx).Info("RSS定时爬取任务已启动")
 }
 
-// StartReportJob 启动定时报告任务
-func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types.Podcast, llmPool *llm.LLMPool) {
+// StartReportJob 启动定时报告任务（llmInfo 为总结模型）
+func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types.Podcast, llmInfo *types.LLMInfo) {
 	c := cron.New()
-	report, err := weekday_month.New(ctx, llmPool)
+	report, err := weekday_month.New(ctx, llmInfo)
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建周月报告处理器失败: %v", err)
 		return
@@ -103,7 +102,7 @@ func StartReportJob(ctx context.Context, reports []*types.Report, podcast *types
 
 	// 添加每日报告任务，每天凌晨0点执行
 
-	dailyReport, err := daily.New(ctx, podcast, llmPool,time.Time{},time.Time{})
+	dailyReport, err := daily.New(ctx, podcast, llmInfo, time.Time{}, time.Time{})
 	if err != nil {
 		log.WithCtx(ctx).Errorf("创建每日报告处理器失败: %v", err)
 		return

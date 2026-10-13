@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"sync"
 	"time"
 
-	"podcast/internal/ai/llm"
 	"podcast/pkg"
 	"podcast/pkg/types"
 
@@ -23,9 +21,7 @@ type retryChatModel struct {
 	base           *qwen.ChatModel
 	maxRetry       int
 	backoff        func(attempt int) time.Duration
-	llmPool        *llm.LLMPool
 	llmInfo        *types.LLMInfo
-	mutex          sync.Mutex
 	responseFormat openai.ChatCompletionResponseFormatType
 }
 
@@ -54,7 +50,8 @@ func isRetryableRateLimit(err error) bool {
 		strings.Contains(s, "requests per") // dashscope 常见
 }
 
-func NewRetryChatModel(ctx context.Context, pool *llm.LLMPool, maxRetry int, backoff func(int) time.Duration, responseFormat openai.ChatCompletionResponseFormatType) (*retryChatModel, error) {
+// NewRetryChatModel 使用指定模型创建带重试能力的 ChatModel（限流时指数退避重试同一模型）
+func NewRetryChatModel(ctx context.Context, llmInfo *types.LLMInfo, maxRetry int, backoff func(int) time.Duration, responseFormat openai.ChatCompletionResponseFormatType) (*retryChatModel, error) {
 	if maxRetry < 0 {
 		maxRetry = 0
 	}
@@ -62,33 +59,18 @@ func NewRetryChatModel(ctx context.Context, pool *llm.LLMPool, maxRetry int, bac
 		backoff = defaultBackoff
 	}
 
-	// 创建 RAG 引擎
-	m := &retryChatModel{
-		maxRetry:       maxRetry,
-		backoff:        backoff,
-		llmPool:        pool,
-		responseFormat: responseFormat,
-	}
-	// 构建ReAct Agent
-	llmInfo, err := m.llmPool.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
 	chatModel, err := pkg.NewChatModel(ctx, llmInfo, responseFormat, true)
 	if err != nil {
 		return nil, err
 	}
 
-	m.base = chatModel
-	m.llmInfo = llmInfo
-
-	return m, nil
-}
-
-func (r *retryChatModel) Release(ctx context.Context) {
-	if r.llmInfo != nil {
-		r.llmPool.Put(ctx, r.llmInfo)
-	}
+	return &retryChatModel{
+		base:           chatModel,
+		maxRetry:       maxRetry,
+		backoff:        backoff,
+		llmInfo:        llmInfo,
+		responseFormat: responseFormat,
+	}, nil
 }
 
 func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
@@ -109,7 +91,6 @@ func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts 
 			}
 
 			wait := r.backoff(attempt)
-			// 可以在这里打日志
 			log.WithCtx(ctx).Warnw("Rate limit, retrying stream...", "attempt", attempt+1, "wait", wait, "err", err)
 
 			select {
@@ -117,22 +98,6 @@ func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts 
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			}
-			r.llmPool.Put(ctx, r.llmInfo)
-			get, err := r.llmPool.Get(ctx)
-			if err != nil {
-				log.WithCtx(ctx).Error(err)
-				continue
-			}
-			r.mutex.Lock()
-			r.llmInfo = get
-			r.mutex.Unlock()
-			chatModel, err := r.newModel(ctx)
-			if err != nil {
-				log.WithCtx(ctx).Error(err)
-				continue
-			}
-			r.base = chatModel
-
 			continue
 		}
 
@@ -163,9 +128,6 @@ func (r *retryChatModel) Stream(ctx context.Context, in []*schema.Message, opts 
 	// 理论上不会走到这里
 	return nil, fmt.Errorf("unexpected: retry loop finished without return: %w", lastErr)
 }
-
-// 如果你的 retryChatModel 需要实现完整的 ChatModel 接口，还需要补上 Generate / GenerateWithTools 等同步方法的重试逻辑
-// 同步方法重试更简单，直接循环调用 base.Generate 即可
 
 func (r *retryChatModel) Generate(ctx context.Context, in []*schema.Message, opts ...model.Option) (*schema.Message, error) {
 	var lastErr error
@@ -205,42 +167,23 @@ func (r *retryChatModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingC
 		return nil, err
 	}
 
-	// 注意：newBase 是 *qwen.ChatModel 类型（从上面实现可见）
-	// 我们需要再包装一次 retry 层
+	// newBase 是 *qwen.ChatModel 类型，再包装一次 retry 层
 	return &retryChatModel{
-		base:     newBase.(*qwen.ChatModel), // 类型断言，假设能成功
-		maxRetry: r.maxRetry,
-		backoff:  r.backoff,
-		llmInfo:  r.llmInfo,
-		llmPool:  r.llmPool,
+		base:           newBase.(*qwen.ChatModel), // 类型断言，假设能成功
+		maxRetry:       r.maxRetry,
+		backoff:        r.backoff,
+		llmInfo:        r.llmInfo,
+		responseFormat: r.responseFormat,
 	}, nil
 }
 
 func (r *retryChatModel) GetType() string {
-	// 很多地方用这个来判断组件类型
-	return r.base.GetType() // 或直接 r.base.GetType()
+	return r.base.GetType()
 }
 
 func (r *retryChatModel) GetModelName() string {
-	// 如果有这个方法
 	if namer, ok := any(r.base).(interface{ GetModelName() string }); ok {
 		return namer.GetModelName()
 	}
 	return "unknown-retry"
-}
-
-func (r *retryChatModel) newModel(ctx context.Context) (*qwen.ChatModel, error) {
-	llmInfo, err := r.llmPool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get LLM info: %w", err)
-	}
-	defer func() {
-		r.llmPool.Put(ctx, llmInfo)
-	}()
-	// 构建ReAct Agent
-	chatModel, err := pkg.NewChatModel(ctx, llmInfo, r.responseFormat, true)
-	if err != nil {
-		return nil, err
-	}
-	return chatModel, nil
 }
