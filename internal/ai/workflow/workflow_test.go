@@ -15,7 +15,7 @@ func init() {
 		panic(err)
 	}
 	log.WithCtx(context.Background()).Infof("%#v", c)
-	models.Init()
+	models.Init(c)
 	//// 初始化Redis客户端
 	//if err := pkg.InitRedisClient(); err != nil {
 	//	log.Errorf("警告: Redis初始化失败: %v", err)
