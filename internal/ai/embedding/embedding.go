@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -23,8 +24,9 @@ type embedClient interface {
 
 // Embedder Embedding 客户端
 type Embedder struct {
-	model  string
-	client embedClient
+	model     string
+	dimension int64 // 期望的向量维度（来自配置），0 表示不校验
+	client    embedClient
 	// Embedder 兼容历史调用：仅 dashscope 模式下非 nil（供依赖 dashscope 组件的场景使用）
 	Embedder *dashscope.Embedder
 }
@@ -52,14 +54,16 @@ func (d *dashscopeClient) embed(ctx context.Context, texts []string) ([][]float3
 
 // ollamaClient 本地 Ollama embedding（POST /api/embed）
 type ollamaClient struct {
-	baseURL string
-	model   string
-	client  *http.Client
+	baseURL    string
+	model      string
+	client     *http.Client
+	dimensions *int // 可选：请求指定输出维度（matryoshka 截断），nil 表示模型默认维度
 }
 
 type ollamaEmbedRequest struct {
-	Model string `json:"model"`
-	Input any    `json:"input"`
+	Model      string `json:"model"`
+	Input      any    `json:"input"`
+	Dimensions *int   `json:"dimensions,omitempty"`
 }
 
 type ollamaEmbedResponse struct {
@@ -69,7 +73,7 @@ type ollamaEmbedResponse struct {
 // newEmbedRequest 构造 ollama /api/embed 请求（供 embed 调用与单元测试复用）
 func (o *ollamaClient) newEmbedRequest(ctx context.Context, texts []string) (*http.Request, error) {
 	url := strings.TrimRight(o.baseURL, "/") + "/api/embed"
-	body, err := json.Marshal(ollamaEmbedRequest{Model: o.model, Input: texts})
+	body, err := json.Marshal(ollamaEmbedRequest{Model: o.model, Input: texts, Dimensions: o.dimensions})
 	if err != nil {
 		return nil, fmt.Errorf("marshal ollama embed request: %w", err)
 	}
@@ -125,29 +129,41 @@ func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 		if cfg.BaseURL == "" {
 			return nil, fmt.Errorf("ollama embedding 需要配置 baseURL（如 http://192.168.1.188:11434）")
 		}
+		var dimensions *int
+		if cfg.Dimension > 0 {
+			d := int(cfg.Dimension)
+			dimensions = &d
+		}
 		return &Embedder{
-			model: cfg.Model,
+			model:     cfg.Model,
+			dimension: cfg.Dimension,
 			client: &ollamaClient{
-				baseURL: cfg.BaseURL,
-				model:   cfg.Model,
-				client:  &http.Client{Timeout: 60 * time.Second},
+				baseURL:    cfg.BaseURL,
+				model:      cfg.Model,
+				client:     &http.Client{Timeout: 60 * time.Second},
+				dimensions: dimensions,
 			},
 		}, nil
 	default: // dashscope
-		d := int(cfg.Dimension)
+		var dimensions *int
+		if cfg.Dimension > 0 {
+			d := int(cfg.Dimension)
+			dimensions = &d
+		}
 		embedder, err := dashscope.NewEmbedder(ctx, &dashscope.EmbeddingConfig{
 			APIKey:     cfg.APIKey,
 			Model:      cfg.Model,
-			Dimensions: &d,
+			Dimensions: dimensions,
 		})
 		if err != nil {
 			log.WithCtx(ctx).Error("NewEmbedder failed, init dashscope embedder err: %v", err)
 			return nil, err
 		}
 		return &Embedder{
-			model:    cfg.Model,
-			client:   &dashscopeClient{Embedder: embedder},
-			Embedder: embedder,
+			model:     cfg.Model,
+			dimension: cfg.Dimension,
+			client:    &dashscopeClient{Embedder: embedder},
+			Embedder:  embedder,
 		}, nil
 	}
 }
@@ -161,5 +177,35 @@ func (e *Embedder) CreateEmbeddings(ctx context.Context, content string) ([]floa
 	if len(vectors) == 0 || len(vectors[0]) == 0 {
 		return nil, fmt.Errorf("embedding returned empty vector")
 	}
-	return vectors[0], nil
+	vec := vectors[0]
+	// 兜底校验：实际维度必须与配置（即 pgvector 表的 vector(N) 维度）一致，
+	// 否则插入时会报 "expected N dimensions, not M"。
+	if e.dimension > 0 && int64(len(vec)) != e.dimension {
+		if len(vec) > int(e.dimension) {
+			// 服务端未按要求截断时，手动取前 N 维并重新归一化（matryoshka 截断方式）
+			log.WithCtx(ctx).Warnw("embedding dimension mismatch, truncating",
+				"model", e.model, "expected", e.dimension, "actual", len(vec))
+			vec = truncateAndNormalize(vec, int(e.dimension))
+		} else {
+			return nil, fmt.Errorf("embedding 维度 %d 小于配置维度 %d（model=%s），请检查配置", len(vec), e.dimension, e.model)
+		}
+	}
+	return vec, nil
+}
+
+// truncateAndNormalize 截取前 n 维并重新做 L2 归一化（matryoshka 截断方式）
+func truncateAndNormalize(vec []float32, n int) []float32 {
+	out := make([]float32, n)
+	copy(out, vec[:n])
+	var norm float64
+	for _, v := range out {
+		norm += float64(v) * float64(v)
+	}
+	if norm > 0 {
+		s := float32(math.Sqrt(norm))
+		for i := range out {
+			out[i] /= s
+		}
+	}
+	return out
 }
