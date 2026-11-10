@@ -9,17 +9,45 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"podcast/config"
 	"podcast/pkg/types"
 
 	"github.com/cloudwego/eino-ext/components/embedding/dashscope"
+	aclopenai "github.com/cloudwego/eino-ext/libs/acl/openai"
 	"github.com/youcd/toolkit/log"
 )
 
 // embedClient 抽象底层 embedding 提供方，便于支持 dashscope、ollama 等
 type embedClient interface {
 	embed(ctx context.Context, texts []string) ([][]float32, error)
+}
+
+// uaTransport 在请求未显式携带 User-Agent 时注入应用 UA（PodCast），
+// 便于在 llama-server / llama_proxy 等服务端日志中识别来源
+type uaTransport struct {
+	base http.RoundTripper
+}
+
+func (t *uaTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", config.UA)
+	}
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return base.RoundTrip(req)
+}
+
+// newHTTPClient 创建注入应用 User-Agent 的 HTTP 客户端
+func newHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: &uaTransport{base: http.DefaultTransport},
+	}
 }
 
 // Embedder Embedding 客户端
@@ -29,6 +57,40 @@ type Embedder struct {
 	client    embedClient
 	// Embedder 兼容历史调用：仅 dashscope 模式下非 nil（供依赖 dashscope 组件的场景使用）
 	Embedder *dashscope.Embedder
+}
+
+// openaiClient 通用 OpenAI 兼容 embedding（POST {baseURL}/embeddings），
+// 适用于 llama_proxy、vLLM、LM Studio 等任何实现 OpenAI embeddings 协议的本地/自托管节点
+type openaiClient struct {
+	*aclopenai.EmbeddingClient
+}
+
+func (o *openaiClient) embed(ctx context.Context, texts []string) ([][]float32, error) {
+	result, err := o.EmbedStrings(ctx, texts)
+	if err != nil {
+		return nil, err
+	}
+	vectors := make([][]float32, 0, len(result))
+	for _, vec := range result {
+		row := make([]float32, len(vec))
+		for i, f := range vec {
+			row[i] = float32(f)
+		}
+		vectors = append(vectors, row)
+	}
+	return vectors, nil
+}
+
+// poolClient 多端点轮询池：同一批请求按 round-robin 分发到多个后端实例，
+// 用于单机多卡各起一个 llama-server 实例的场景（如 8083/8084 两张 2080 Ti）
+type poolClient struct {
+	clients []embedClient
+	next    uint64 // atomic round-robin 计数
+}
+
+func (p *poolClient) embed(ctx context.Context, texts []string) ([][]float32, error) {
+	i := atomic.AddUint64(&p.next, 1)
+	return p.clients[i%uint64(len(p.clients))].embed(ctx, texts)
 }
 
 // dashscopeClient 阿里云百炼 dashscope embedding
@@ -82,6 +144,7 @@ func (o *ollamaClient) newEmbedRequest(ctx context.Context, texts []string) (*ht
 		return nil, fmt.Errorf("new ollama embed request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", config.UA)
 	return req, nil
 }
 
@@ -112,7 +175,7 @@ func (o *ollamaClient) embed(ctx context.Context, texts []string) ([][]float32, 
 	return parsed.Embeddings, nil
 }
 
-// NewEmbedder 创建 Embedding 客户端，支持 dashscope（默认）与 ollama
+// NewEmbedder 创建 Embedding 客户端，支持 dashscope（默认）、ollama 与 openai（通用 OpenAI 兼容协议）
 func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 	provider := strings.ToLower(strings.TrimSpace(cfg.Provider))
 	if provider == "" {
@@ -140,9 +203,65 @@ func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 			client: &ollamaClient{
 				baseURL:    cfg.BaseURL,
 				model:      cfg.Model,
-				client:     &http.Client{Timeout: 60 * time.Second},
+				client:     newHTTPClient(120 * time.Second),
 				dimensions: dimensions,
 			},
+		}, nil
+	case "openai":
+		if cfg.BaseURL == "" {
+			return nil, fmt.Errorf("openai embedding 需要配置 baseURL（如 http://192.168.111.126:8083/v1，多实例用逗号分隔）")
+		}
+		var dimensions *int
+		if cfg.Dimension > 0 {
+			d := int(cfg.Dimension)
+			dimensions = &d
+		}
+		encodingFmt := aclopenai.EmbeddingEncodingFormatFloat
+		// baseURL 支持逗号分隔多端点（如 "http://host:8083/v1,http://host:8084/v1"），
+		// 对应单机多卡各起一个推理实例，按 round-robin 轮询分发
+		urls := strings.Split(cfg.BaseURL, ",")
+		for i := range urls {
+			urls[i] = strings.TrimSpace(urls[i])
+		}
+		if len(urls) == 1 {
+			cli, err := aclopenai.NewEmbeddingClient(ctx, &aclopenai.EmbeddingConfig{
+				APIKey:         cfg.APIKey,
+				BaseURL:        urls[0],
+				Model:          cfg.Model,
+				Dimensions:     dimensions,
+				EncodingFormat: &encodingFmt,
+				HTTPClient:     newHTTPClient(120 * time.Second),
+			})
+			if err != nil {
+				log.WithCtx(ctx).Error("NewEmbedder failed, init openai embed client err: %v", err)
+				return nil, err
+			}
+			return &Embedder{
+				model:     cfg.Model,
+				dimension: cfg.Dimension,
+				client:    &openaiClient{EmbeddingClient: cli},
+			}, nil
+		}
+		clients := make([]embedClient, 0, len(urls))
+		for _, u := range urls {
+			cli, err := aclopenai.NewEmbeddingClient(ctx, &aclopenai.EmbeddingConfig{
+				APIKey:         cfg.APIKey,
+				BaseURL:        u,
+				Model:          cfg.Model,
+				Dimensions:     dimensions,
+				EncodingFormat: &encodingFmt,
+				HTTPClient:     newHTTPClient(120 * time.Second),
+			})
+			if err != nil {
+				log.WithCtx(ctx).Error("NewEmbedder failed, init openai embed client err: %v", err)
+				return nil, err
+			}
+			clients = append(clients, &openaiClient{EmbeddingClient: cli})
+		}
+		return &Embedder{
+			model:     cfg.Model,
+			dimension: cfg.Dimension,
+			client:    &poolClient{clients: clients},
 		}, nil
 	default: // dashscope
 		var dimensions *int
@@ -154,6 +273,7 @@ func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 			APIKey:     cfg.APIKey,
 			Model:      cfg.Model,
 			Dimensions: dimensions,
+			HTTPClient: newHTTPClient(120 * time.Second),
 		})
 		if err != nil {
 			log.WithCtx(ctx).Error("NewEmbedder failed, init dashscope embedder err: %v", err)
@@ -182,8 +302,10 @@ func (e *Embedder) CreateEmbeddings(ctx context.Context, content string) ([]floa
 	// 否则插入时会报 "expected N dimensions, not M"。
 	if e.dimension > 0 && int64(len(vec)) != e.dimension {
 		if len(vec) > int(e.dimension) {
-			// 服务端未按要求截断时，手动取前 N 维并重新归一化（matryoshka 截断方式）
-			log.WithCtx(ctx).Warnw("embedding dimension mismatch, truncating",
+			// 服务端未按要求截断时，手动取前 N 维并重新归一化（matryoshka 截断方式）。
+			// 部分自托管节点（如 llama.cpp llama-server）不支持 dimensions 参数、按原生维度输出，
+			// 截断后的向量与服务端 MRL 截断数学等价，属预期行为，故用 DEBUG 级别。
+			log.WithCtx(ctx).Debugw("embedding dimension mismatch, truncating",
 				"model", e.model, "expected", e.dimension, "actual", len(vec))
 			vec = truncateAndNormalize(vec, int(e.dimension))
 		} else {

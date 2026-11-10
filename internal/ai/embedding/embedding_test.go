@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"podcast/config"
 	"podcast/pkg/types"
 )
 
@@ -71,6 +72,9 @@ func TestOllamaClient_Endpoint(t *testing.T) {
 	}
 	if !strings.Contains(body.String(), `"qwen3-embedding:0.6b"`) {
 		t.Errorf("body 缺少 model: %s", body.String())
+	}
+	if got := req.Header.Get("User-Agent"); got != config.UA {
+		t.Errorf("User-Agent 应为 %s，实际 %s", config.UA, got)
 	}
 }
 

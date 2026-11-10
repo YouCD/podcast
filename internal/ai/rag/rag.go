@@ -181,9 +181,9 @@ func (e *Engine) searchByVector(ctx context.Context, queryVector []float32, limi
 	collectionName := e.cfg.PgVector.RssCollection
 
 	query := fmt.Sprintf(`
-		SELECT id, title, md5, date, content, 1 - (embedding <=> $1::vector) as score
+		SELECT id, title, md5, date, content, 1 - (embedding <=> $1::halfvec) as score
 		FROM %s
-		ORDER BY embedding <=> $1::vector
+		ORDER BY embedding <=> $1::halfvec
 		LIMIT $2
 	`, collectionName)
 
@@ -233,7 +233,7 @@ func (e *Engine) AddRssContent(ctx context.Context, rss *models.RssContent) erro
 	collectionName := e.cfg.PgVector.RssCollection
 	query := fmt.Sprintf(`
 		INSERT INTO %s (title, md5, date, content, embedding)
-		VALUES ($1, $2, $3, $4, $5::vector)
+		VALUES ($1, $2, $3, $4, $5::halfvec)
 		ON CONFLICT (md5) DO UPDATE SET
 			title = EXCLUDED.title,
 			content = EXCLUDED.content,

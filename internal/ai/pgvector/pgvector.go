@@ -142,10 +142,10 @@ func (p *PgVector) DedupSearch(ctx context.Context, queryVector []float32, colle
 
 	// 使用 pgvector 的 cosine similarity 搜索
 	query := fmt.Sprintf(`
-		SELECT title, 1 - (embedding <=> $1::vector) as score
+		SELECT title, 1 - (embedding <=> $1::halfvec) as score
 		FROM %s
 		WHERE date >= $2 AND date <= $3
-		ORDER BY embedding <=> $1::vector
+		ORDER BY embedding <=> $1::halfvec
 		LIMIT 1
 	`, collectionName)
 
@@ -225,7 +225,7 @@ func (p *PgVector) CreateCollection(ctx context.Context, collectionName string) 
 				md5 VARCHAR(32) NOT NULL UNIQUE,
 				date TIMESTAMP NOT NULL,
 				content TEXT,
-				embedding vector(%d)
+				embedding halfvec(%d)
 			)
 		`, collectionName, p.dimension)
 	} else {
@@ -236,7 +236,7 @@ func (p *PgVector) CreateCollection(ctx context.Context, collectionName string) 
 				title VARCHAR(255) NOT NULL,
 				md5 VARCHAR(32) NOT NULL,
 				date TIMESTAMP NOT NULL,
-				embedding vector(%d)
+				embedding halfvec(%d)
 			)
 		`, collectionName, p.dimension)
 	}
@@ -261,7 +261,7 @@ func (p *PgVector) CreateCollection(ctx context.Context, collectionName string) 
 func (p *PgVector) Insert(ctx context.Context, date time.Time, md5, title string, vectors []float32, collectionName string) error {
 	query := fmt.Sprintf(`
 		INSERT INTO %s (title, md5, date, embedding)
-		VALUES ($1, $2, $3, $4::vector)
+		VALUES ($1, $2, $3, $4::halfvec)
 	`, collectionName)
 
 	err := p.db.Exec(query, title, md5, date, vectorToString(vectors)).Error

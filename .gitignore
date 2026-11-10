@@ -42,3 +42,4 @@ frontend/dist
 frontend/node_modules
 config/config.local.yaml
 .kilocode
+.openidea
