@@ -357,8 +357,7 @@ export const useChatRecordsStore = defineStore("chatRecords", () => {
       };
       state.value.sessionData.messages.push(mm);
 
-      await sendMessageAction(mm);
-
+      // 用户消息由后端在流式接口中统一保存，避免重复
       return;
     }
     if (state.value.sessionData && role === "assistant") {

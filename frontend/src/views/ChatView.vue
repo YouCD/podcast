@@ -278,7 +278,6 @@ const {
   fetchSessionList,
   fetchSessionDataBySessionId,
   filterSession,
-  sendMessageAction,
   setMsg,
   changeTitleHandlerAction,
   SetReasoningTyping,
@@ -550,52 +549,7 @@ const getAIAnswer = async (content: string, uuidStr: string) => {
     onclose: async () => {
       console.log("SSE closed");
 
-      // 从 sessionData 中获取完整的消息数据
-      const message = sessionData.value?.messages.find(
-        (m) => m.uuid === uuidStr,
-      );
-      console.log("onclose: message found?", !!message);
-      console.log(
-        "onclose: message.steps?",
-        message?.steps
-          ? JSON.stringify(message.steps).substring(0, 500)
-          : "undefined",
-      );
-
-      // 构建完整的消息数据发送给后端保存
-      // 使用 any 类型因为需要将 plan 和 steps 序列化为字符串发送给后端
-      const messageData: any = {
-        session_id: currentSession.value!.session_id,
-        reasoning_content: thinkContent.value,
-        content: response.value,
-        role: "assistant",
-        uuid: uuidStr,
-      };
-
-      // 如果有计划数据，序列化后发送
-      if (message?.plan) {
-        messageData.plan = JSON.stringify(message.plan);
-      }
-
-      // 如果有步骤数据，序列化后发送
-      if (
-        message?.steps &&
-        Array.isArray(message.steps) &&
-        message.steps.length > 0
-      ) {
-        messageData.steps = JSON.stringify(message.steps);
-        console.log(
-          "onclose: sending steps to backend:",
-          messageData.steps.substring(0, 500),
-        );
-      }
-
-      // 如果有思考内容，发送
-      if (message?.think_content) {
-        messageData.think_content = message.think_content;
-      }
-
-      await sendMessageAction(messageData);
+      // 助手消息（含思考过程、计划、步骤）由后端统一保存，前端不再重复保存
       SetReasoningTyping(uuidStr);
       setThinkTyping(uuidStr, false);
 

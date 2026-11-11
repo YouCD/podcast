@@ -143,7 +143,7 @@ func (w *RSSWorkflow) buildGraph() *compose.Graph[[]*types.RSSSource, []*types.R
 
 	// 节点 8: 保存
 	_ = graph.AddLambdaNode("save", compose.InvokableLambda(func(ctx context.Context, rssItems []*types.RSSItem) ([]*types.RSSItem, error) {
-		return save(ctx, rssItems, w.cfg, w.llmInfo, w.pgVector)
+		return save(ctx, rssItems, w.cfg, w.pgVector)
 	}))
 
 	// 编排

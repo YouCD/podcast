@@ -19,12 +19,10 @@ import (
 type MCPServer struct {
 	*server.MCPServer
 	token    string
-	ragCfg   *types.RagConfig
 	MCPProxy map[string]*types.Mcp
-	llmInfo  *types.LLMInfo // 普通模型
 }
 
-func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types.Mcp, llmInfo *types.LLMInfo) *MCPServer {
+func NewMCPServer(token string, MCPProxy map[string]*types.Mcp) *MCPServer {
 	s := server.NewMCPServer(
 		"YCD-MCP",
 		"1.0.0",
@@ -32,7 +30,7 @@ func NewMCPServer(token string, cfg *types.RagConfig, MCPProxy map[string]*types
 		server.WithInstructions("新闻咨询助手，请输入指令进行操作。"),
 	)
 
-	return &MCPServer{s, token, cfg, MCPProxy, llmInfo}
+	return &MCPServer{s, token, MCPProxy}
 }
 
 func (s *MCPServer) RunWithGin(router *gin.Engine) {
@@ -64,7 +62,6 @@ func (s *MCPServer) Init(mcpProxyConfig map[string]*types.Mcp) {
 	s.RegisterTool(searchRss, SearchRss).
 		RegisterTool(rssCategories, RssCategories).
 		RegisterTool(getCurrentTime, GetCurrentTime)
-	// s.RegisterTool(ragSearch, RagSearch)
 	ctx := context.Background()
 	proxy := InitMcpProxy(ctx, mcpProxyConfig)
 

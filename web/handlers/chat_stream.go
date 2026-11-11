@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
-
-	"podcast/internal/ai/agent"
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/youcd/toolkit/log"
 
+	"podcast/internal/ai/agent"
 	"podcast/internal/database/models"
 )
 
@@ -95,6 +96,32 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 
 	log.WithCtx(ctx).Infow("RagAgent", "messages", messages)
 
+	// 保存用户消息（保证多轮历史可被后续请求加载）
+	userID := 0
+	if v, ok := c.Get("userID"); ok {
+		if id, ok := v.(int); ok {
+			userID = id
+		}
+	}
+	session, err := h.chatService.GetSessionBySessionID(ctx, input.SessionID)
+	if err != nil {
+		session = &models.ChatSession{SessionID: input.SessionID, UserID: userID, Title: input.Content}
+		if err := h.chatService.CreateSession(ctx, session); err != nil {
+			log.WithCtx(ctx).Errorf("Failed to create session: %v", err)
+		}
+	}
+	userMsg := &models.Message{
+		SessionID: input.SessionID,
+		UUID:      uuid.NewString(),
+		Role:      "user",
+		Content:   input.Content,
+	}
+	if err := h.chatService.CreateMessage(userMsg); err != nil {
+		log.WithCtx(ctx).Errorf("Failed to save user message: %v", err)
+	}
+	session.UpdatedAt = userMsg.CreatedAt
+	h.chatService.UpdateSession(ctx, session)
+
 	// 创建一个带缓冲的 Channel 用于串行化 SSE 事件
 	// 缓冲大小可以根据实际情况调整，防止阻塞生产者
 	sseChan := make(chan SSEEvent, 100)
@@ -108,8 +135,8 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 		defer wg.Done()
 		defer close(sseChan) // 生产者结束时关闭 Channel
 
-		// 创建 Agent 实例（使用 Plan-Execute 模式）
-		agentInstance, err := agent.NewAgent(ctx, h.ragCfg)
+		// 获取共享 Agent 实例（首次调用时初始化，之后复用）
+		agentInstance, err := h.getAgent(ctx)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("Failed to create RAG Agent: %v", err)
 			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("Failed to create RAG Agent: %v", err)})
@@ -117,9 +144,26 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 			return
 		}
 
-		// 设置消息回调处理函数
+		// 设置消息回调处理函数（同时捕获计划数据，供历史渲染）
+		var capturedPlanJSON string
 		messageHandler := func(ctx context.Context, stage string, data map[string]any) {
 			log.WithCtx(ctx).Debugw(stage, "data", data)
+			switch stage {
+			case "plan_created":
+				if p, ok := data["plan"].(string); ok {
+					capturedPlanJSON = p
+				}
+			case "replanned":
+				// 仅当新计划有步骤时才替换（避免空计划覆盖原计划）
+				if b, err := json.Marshal(data["plan"]); err == nil {
+					var np struct {
+						Steps []json.RawMessage `json:"steps"`
+					}
+					if json.Unmarshal(b, &np) == nil && len(np.Steps) > 0 {
+						capturedPlanJSON = string(b)
+					}
+				}
+			}
 			jsonData, err := json.Marshal(data)
 			if err != nil {
 				log.WithCtx(ctx).Errorf("Failed to marshal response: %v", err)
@@ -143,8 +187,8 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 		// 构建用户输入消息
 		userMessage := schema.UserMessage(input.Content)
 
-		// 启动 Plan-Execute Agent 流式处理
-		stream, err := planExecuteAgent.Stream(ctx, userMessage)
+		// 启动 Plan-Execute Agent 流式处理（携带多轮对话历史）
+		stream, err := planExecuteAgent.Stream(ctx, userMessage, messages)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("RAG query failed: %v", err)
 			errResp, _ := json.Marshal(map[string]string{"error": fmt.Sprintf("RAG query failed: %v", err)})
@@ -152,6 +196,8 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 			return
 		}
 
+		// 累积助手回复，流结束后保存到会话历史
+		var assistantContent, thinkContent strings.Builder
 		for {
 			select {
 			case <-ctx.Done():
@@ -161,10 +207,20 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 				if err != nil {
 					if err == io.EOF {
 						sseChan <- SSEEvent{Event: "end", Data: `{"end":true}`}
+						if assistantContent.Len() > 0 {
+							planJSON, stepsJSON := h.buildPlanAndStepsJSON(planExecuteAgent, capturedPlanJSON)
+							h.saveAssistantMessage(input.SessionID, assistantContent.String(), thinkContent.String(), planJSON, stepsJSON)
+						}
 						return
 					}
 					log.WithCtx(ctx).Errorf("Error reading stream: %v", err)
 					return
+				}
+				if msg.ReasoningContent != "" {
+					thinkContent.WriteString(msg.ReasoningContent)
+				}
+				if msg.Content != "" {
+					assistantContent.WriteString(msg.Content)
 				}
 				handlerStreamMsg(msg, sseChan)
 			}
@@ -186,6 +242,65 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+	}
+}
+
+// buildPlanAndStepsJSON 生成历史渲染所需的 plan/steps JSON
+// plan 优先用事件流捕获的计划（含 tool_args），steps 用实际执行过的步骤（含状态与结果）
+func (h *ChatHandler) buildPlanAndStepsJSON(a *agent.PlanExecuteAgent, capturedPlanJSON string) (string, string) {
+	planJSON := capturedPlanJSON
+	if planJSON == "" {
+		if plan := a.GetCurrentPlan(); plan != nil && len(plan.Steps) > 0 {
+			if b, err := json.Marshal(plan); err == nil {
+				planJSON = string(b)
+			}
+		}
+	}
+	if planJSON == "" {
+		return "", ""
+	}
+	// steps 数组格式与前端 StepInfo 对齐（step_id 而非 id）
+	steps := make([]map[string]any, 0)
+	for _, s := range a.GetExecutedSteps() {
+		step := map[string]any{
+			"step_id":     s.ID,
+			"description": s.Description,
+			"reason":      s.Reason,
+			"tool_name":   s.ToolName,
+			"status":      s.Status,
+		}
+		if s.Result != "" {
+			step["result"] = s.Result
+		}
+		steps = append(steps, step)
+	}
+	stepsJSON, err := json.Marshal(steps)
+	if err != nil {
+		return planJSON, ""
+	}
+	return planJSON, string(stepsJSON)
+}
+
+// saveAssistantMessage 保存助手回复到会话历史（含思考过程、计划与步骤，供刷新后渲染）
+func (h *ChatHandler) saveAssistantMessage(sessionID, content, thinkContent, planJSON, stepsJSON string) {
+	ctx := context.Background()
+	msg := &models.Message{
+		SessionID:        sessionID,
+		UUID:             uuid.NewString(),
+		Role:             "assistant",
+		Content:          content,
+		ReasoningContent: thinkContent,
+		ThinkContent:     thinkContent,
+		Plan:             planJSON,
+		Steps:            stepsJSON,
+	}
+	if err := h.chatService.CreateMessage(msg); err != nil {
+		log.WithCtx(ctx).Errorf("Failed to save assistant message: %v", err)
+		return
+	}
+	if session, err := h.chatService.GetSessionBySessionID(ctx, sessionID); err == nil {
+		session.UpdatedAt = msg.CreatedAt
+		h.chatService.UpdateSession(ctx, session)
 	}
 }
 

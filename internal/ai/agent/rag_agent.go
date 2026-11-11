@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"podcast/pkg/types"
@@ -35,14 +36,20 @@ type RAGAgentConfig struct {
 	Mode AgentMode
 	// 最大重规划次数（仅 Plan-Execute 模式有效）
 	MaxReplan int
+	// 内部工具策略配置文件路径（agent_tools.yaml），可为空
+	ToolsFile string
+	// 外部 MCP 代理配置（mcpProxy），工具策略来源之一
+	MCPProxy map[string]*types.Mcp
 }
 
 // RAGAgent RAG Agent
 type RAGAgent struct {
-	chatModel model.ToolCallingChatModel
-	tools     []tool.BaseTool
-	mode      AgentMode
-	maxReplan int
+	chatModel   model.ToolCallingChatModel
+	tools       []tool.BaseTool
+	tm          *ToolManager // 工具管理器（用于释放 MCP/数据库资源）
+	mode        AgentMode
+	maxReplan   int
+	strategySrc *types.ToolStrategySource // 工具策略来源（内部配置 + mcpProxy）
 }
 
 // NewAgent 创建 Agent（默认使用 Plan-Execute 模式）
@@ -60,6 +67,16 @@ func NewAgent(ctx context.Context, cfg *RAGAgentConfig) (*RAGAgent, error) {
 		return nil, err
 	}
 
+	// 加载工具策略配置（内部工具 agent_tools.yaml + 外部 mcpProxy）
+	internalTools, err := types.LoadAgentToolsConfig(cfg.ToolsFile)
+	if err != nil {
+		return nil, fmt.Errorf("加载工具策略配置失败: %w", err)
+	}
+	strategySrc := &types.ToolStrategySource{
+		Internal: internalTools,
+		MCPProxy: cfg.MCPProxy,
+	}
+
 	// 设置默认模式
 	mode := cfg.Mode
 	if mode == "" {
@@ -67,24 +84,54 @@ func NewAgent(ctx context.Context, cfg *RAGAgentConfig) (*RAGAgent, error) {
 	}
 
 	return &RAGAgent{
-		chatModel: m,
-		tools:     tm.GetTools(),
-		mode:      mode,
-		maxReplan: cfg.MaxReplan,
+		chatModel:   m,
+		tools:       tm.GetTools(),
+		tm:          tm,
+		mode:        mode,
+		maxReplan:   cfg.MaxReplan,
+		strategySrc: strategySrc,
 	}, nil
+}
+
+// Close 释放 Agent 持有的资源（MCP 客户端、PgVector 连接等）
+func (r *RAGAgent) Close(ctx context.Context) error {
+	if r.tm != nil {
+		return r.tm.Close(ctx)
+	}
+	return nil
 }
 
 // BuildRAGAgent 构建 ReAct Agent（保留原有接口兼容）
 func (r *RAGAgent) BuildRAGAgent(ctx context.Context) (*react.Agent, error) {
+	// 动态生成工具详解与使用策略段落
+	toolsSection := r.buildToolsSection(ctx)
+
 	// 使用Eino内置的ReAct Agent
 	config := &react.AgentConfig{
 		ToolCallingModel: r.chatModel,
 		ToolsConfig:      compose.ToolsNodeConfig{Tools: r.tools},
 		// 最大迭代次数，防止无限循环
-		MaxStep:               20,
+		MaxStep: 20,
+		MessageModifier: func(_ context.Context, input []*schema.Message) []*schema.Message {
+			return append([]*schema.Message{schema.SystemMessage(fmt.Sprintf(reactPromptTemplate, toolsSection))}, input...)
+		},
 		StreamToolCallChecker: toolCallChecker,
 	}
 	return react.NewAgent(ctx, config)
+}
+
+// buildToolsSection 基于已注册工具和策略来源，动态生成 ReAct 提示词的工具详解段落
+func (r *RAGAgent) buildToolsSection(ctx context.Context) string {
+	var infos []*schema.ToolInfo
+	for _, t := range r.tools {
+		info, err := t.Info(ctx)
+		if err != nil {
+			continue
+		}
+		infos = append(infos, info)
+	}
+	p := &Planner{strategySrc: r.strategySrc}
+	return p.buildToolsDescription(infos)
 }
 
 // BuildPlanExecuteAgent 构建 Plan-Execute Agent
@@ -94,19 +141,9 @@ func (r *RAGAgent) BuildPlanExecuteAgent(messageHandler func(ctx context.Context
 		Tools:         r.tools,
 		MaxReplan:     r.maxReplan,
 		MessageHandle: messageHandler,
+		StrategySrc:   r.strategySrc,
 	}
 	return NewPlanExecuteAgent(config)
-}
-
-// BuildPlanExecuteAgentWithReplan 构建支持重规划的 Plan-Execute Agent
-func (r *RAGAgent) BuildPlanExecuteAgentWithReplan(messageHandler func(ctx context.Context, stage string, data map[string]any), maxReplan int) (*PlanExecuteAgentWithReplan, error) {
-	config := &PlanExecuteAgentConfig{
-		ChatModel:     r.chatModel,
-		Tools:         r.tools,
-		MaxReplan:     maxReplan,
-		MessageHandle: messageHandler,
-	}
-	return NewPlanExecuteAgentWithReplan(config, maxReplan)
 }
 
 // GetMode 获取当前 Agent 模式
@@ -130,63 +167,65 @@ func (r *RAGAgent) GetChatModel() model.ToolCallingChatModel {
 }
 
 // Run 执行 Agent（根据模式自动选择）
-func (r *RAGAgent) Run(ctx context.Context, input *schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.Message, error) {
+// history 为多轮对话历史（不含当前问题，按时间正序）
+func (r *RAGAgent) Run(ctx context.Context, input *schema.Message, history []*schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.Message, error) {
 	switch r.mode {
 	case ModeReAct:
-		return r.runReAct(ctx, input)
+		return r.runReAct(ctx, input, history)
 	case ModePlanExecute:
-		return r.runPlanExecute(ctx, input, messageHandler)
+		return r.runPlanExecute(ctx, input, history, messageHandler)
 	default:
-		return r.runPlanExecute(ctx, input, messageHandler)
+		return r.runPlanExecute(ctx, input, history, messageHandler)
 	}
 }
 
 // Stream 流式执行 Agent
-func (r *RAGAgent) Stream(ctx context.Context, input *schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.StreamReader[*schema.Message], error) {
+// history 为多轮对话历史（不含当前问题，按时间正序）
+func (r *RAGAgent) Stream(ctx context.Context, input *schema.Message, history []*schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.StreamReader[*schema.Message], error) {
 	switch r.mode {
 	case ModeReAct:
-		return r.streamReAct(ctx, input)
+		return r.streamReAct(ctx, input, history)
 	case ModePlanExecute:
-		return r.streamPlanExecute(ctx, input, messageHandler)
+		return r.streamPlanExecute(ctx, input, history, messageHandler)
 	default:
-		return r.streamPlanExecute(ctx, input, messageHandler)
+		return r.streamPlanExecute(ctx, input, history, messageHandler)
 	}
 }
 
 // runReAct 使用 ReAct 模式执行
-func (r *RAGAgent) runReAct(ctx context.Context, input *schema.Message) (*schema.Message, error) {
+func (r *RAGAgent) runReAct(ctx context.Context, input *schema.Message, history []*schema.Message) (*schema.Message, error) {
 	agent, err := r.BuildRAGAgent(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return agent.Generate(ctx, []*schema.Message{input})
+	return agent.Generate(ctx, append(append([]*schema.Message{}, history...), input))
 }
 
 // streamReAct 使用 ReAct 模式流式执行
-func (r *RAGAgent) streamReAct(ctx context.Context, input *schema.Message) (*schema.StreamReader[*schema.Message], error) {
+func (r *RAGAgent) streamReAct(ctx context.Context, input *schema.Message, history []*schema.Message) (*schema.StreamReader[*schema.Message], error) {
 	agent, err := r.BuildRAGAgent(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return agent.Stream(ctx, []*schema.Message{input})
+	return agent.Stream(ctx, append(append([]*schema.Message{}, history...), input))
 }
 
 // runPlanExecute 使用 Plan-Execute 模式执行
-func (r *RAGAgent) runPlanExecute(ctx context.Context, input *schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.Message, error) {
+func (r *RAGAgent) runPlanExecute(ctx context.Context, input *schema.Message, history []*schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.Message, error) {
 	agent, err := r.BuildPlanExecuteAgent(messageHandler)
 	if err != nil {
 		return nil, err
 	}
-	return agent.Run(ctx, input)
+	return agent.Run(ctx, input, history)
 }
 
 // streamPlanExecute 使用 Plan-Execute 模式流式执行
-func (r *RAGAgent) streamPlanExecute(ctx context.Context, input *schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.StreamReader[*schema.Message], error) {
+func (r *RAGAgent) streamPlanExecute(ctx context.Context, input *schema.Message, history []*schema.Message, messageHandler func(ctx context.Context, stage string, data map[string]any)) (*schema.StreamReader[*schema.Message], error) {
 	agent, err := r.BuildPlanExecuteAgent(messageHandler)
 	if err != nil {
 		return nil, err
 	}
-	return agent.Stream(ctx, input)
+	return agent.Stream(ctx, input, history)
 }
 
 func toolCallChecker(ctx context.Context, sr *schema.StreamReader[*schema.Message]) (bool, error) {

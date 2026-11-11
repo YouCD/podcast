@@ -45,6 +45,8 @@ func SetupRouter(container *app.Container) *gin.Engine {
 		MCP:       container.MCPConfig,
 		RagConfig: ragCfg,
 		LLMInfo:   container.LLM.Summary,
+		ToolsFile: container.Cfg.Global.ToolsFile,
+		MCPProxy:  container.Cfg.MCPProxy,
 	}, container.LLM.Normal)
 	promptHandler := handlers.NewPromptHandler(container.PromptSvc)
 	templateHandler := handlers.NewTemplateHandler(container.TemplateSvc)
@@ -55,7 +57,7 @@ func SetupRouter(container *app.Container) *gin.Engine {
 		token = container.Cfg.Global.Token
 		logLevel = container.Cfg.Global.LogLevel
 	}
-	mcp.NewMCPServer(token, ragCfg, container.Cfg.MCPProxy, container.LLM.Normal).RunWithGin(r)
+	mcp.NewMCPServer(token, container.Cfg.MCPProxy).RunWithGin(r)
 	r.Use(StaticServe(dist.Dist))
 	r.Use(handlers.RequestIDMiddleware())
 	r.Use(handlers.CorsMiddleware())

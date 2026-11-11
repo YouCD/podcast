@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"podcast/pkg/types"
@@ -71,6 +72,7 @@ type Global struct {
 	Token          string `json:"token" yaml:"token"`
 	MaxConcurrency int    `json:"maxConcurrency" yaml:"maxConcurrency"` // LLM 最大并发数
 	LLMTimeout     int    `json:"llmTimeout" yaml:"llmTimeout"`         // 单条 LLM 分析超时（秒），0 表示默认 120 秒
+	ToolsFile      string `json:"toolsFile" yaml:"toolsFile"`           // Agent 工具策略配置文件，缺省为 config 同目录下的 agent_tools.yaml
 }
 
 type vector struct {
@@ -143,6 +145,10 @@ func LoadAppConfig(fileName string) (*Config, error) {
 	// 设置默认向量表名
 	if Cfg.Database.PostgreSQL.DedupCollection == "" {
 		Cfg.Database.PostgreSQL.DedupCollection = "dedup_title"
+	}
+	// Agent 工具策略配置默认与主配置同目录
+	if Cfg.Global.ToolsFile == "" {
+		Cfg.Global.ToolsFile = filepath.Join(filepath.Dir(fileName), "agent_tools.yaml")
 	}
 	if Cfg.Database.PostgreSQL.RssCollection == "" {
 		Cfg.Database.PostgreSQL.RssCollection = "rss_vectors"

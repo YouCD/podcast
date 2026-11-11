@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
+	"sync"
 
 	"podcast/internal/ai/agent"
 
@@ -20,11 +22,30 @@ type ChatHandler struct {
 	chatService *service.ChatService
 	ragCfg      *agent.RAGAgentConfig
 	llmInfo     *types.LLMInfo // 普通模型（会话标题生成等）
+
+	// 共享 RAG Agent（懒加载，避免每请求重建 MCP/数据库连接）
+	agentMu  sync.Mutex
+	ragAgent *agent.RAGAgent
 }
 
 // NewChatHandler 创建新的聊天处理器
 func NewChatHandler(chatService *service.ChatService, ragCfg *agent.RAGAgentConfig, llmInfo *types.LLMInfo) *ChatHandler {
 	return &ChatHandler{chatService: chatService, ragCfg: ragCfg, llmInfo: llmInfo}
+}
+
+// getAgent 获取共享的 RAG Agent（首次调用时创建；创建失败不缓存，下次重试）
+func (h *ChatHandler) getAgent(ctx context.Context) (*agent.RAGAgent, error) {
+	h.agentMu.Lock()
+	defer h.agentMu.Unlock()
+	if h.ragAgent != nil {
+		return h.ragAgent, nil
+	}
+	ragAgent, err := agent.NewAgent(ctx, h.ragCfg)
+	if err != nil {
+		return nil, err
+	}
+	h.ragAgent = ragAgent
+	return ragAgent, nil
 }
 
 // GetChatHistory 根据会话ID获取聊天记录

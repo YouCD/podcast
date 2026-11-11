@@ -9,7 +9,6 @@ import (
 	"math"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"podcast/config"
@@ -79,18 +78,6 @@ func (o *openaiClient) embed(ctx context.Context, texts []string) ([][]float32, 
 		vectors = append(vectors, row)
 	}
 	return vectors, nil
-}
-
-// poolClient 多端点轮询池：同一批请求按 round-robin 分发到多个后端实例，
-// 用于单机多卡各起一个 llama-server 实例的场景（如 8083/8084 两张 2080 Ti）
-type poolClient struct {
-	clients []embedClient
-	next    uint64 // atomic round-robin 计数
-}
-
-func (p *poolClient) embed(ctx context.Context, texts []string) ([][]float32, error) {
-	i := atomic.AddUint64(&p.next, 1)
-	return p.clients[i%uint64(len(p.clients))].embed(ctx, texts)
 }
 
 // dashscopeClient 阿里云百炼 dashscope embedding
@@ -209,7 +196,7 @@ func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 		}, nil
 	case "openai":
 		if cfg.BaseURL == "" {
-			return nil, fmt.Errorf("openai embedding 需要配置 baseURL（如 http://192.168.111.126:8083/v1，多实例用逗号分隔）")
+			return nil, fmt.Errorf("openai embedding 需要配置 baseURL（如 http://192.168.111.126:8083/v1）")
 		}
 		var dimensions *int
 		if cfg.Dimension > 0 {
@@ -217,51 +204,22 @@ func NewEmbedder(ctx context.Context, cfg *types.Embedding) (*Embedder, error) {
 			dimensions = &d
 		}
 		encodingFmt := aclopenai.EmbeddingEncodingFormatFloat
-		// baseURL 支持逗号分隔多端点（如 "http://host:8083/v1,http://host:8084/v1"），
-		// 对应单机多卡各起一个推理实例，按 round-robin 轮询分发
-		urls := strings.Split(cfg.BaseURL, ",")
-		for i := range urls {
-			urls[i] = strings.TrimSpace(urls[i])
-		}
-		if len(urls) == 1 {
-			cli, err := aclopenai.NewEmbeddingClient(ctx, &aclopenai.EmbeddingConfig{
-				APIKey:         cfg.APIKey,
-				BaseURL:        urls[0],
-				Model:          cfg.Model,
-				Dimensions:     dimensions,
-				EncodingFormat: &encodingFmt,
-				HTTPClient:     newHTTPClient(120 * time.Second),
-			})
-			if err != nil {
-				log.WithCtx(ctx).Error("NewEmbedder failed, init openai embed client err: %v", err)
-				return nil, err
-			}
-			return &Embedder{
-				model:     cfg.Model,
-				dimension: cfg.Dimension,
-				client:    &openaiClient{EmbeddingClient: cli},
-			}, nil
-		}
-		clients := make([]embedClient, 0, len(urls))
-		for _, u := range urls {
-			cli, err := aclopenai.NewEmbeddingClient(ctx, &aclopenai.EmbeddingConfig{
-				APIKey:         cfg.APIKey,
-				BaseURL:        u,
-				Model:          cfg.Model,
-				Dimensions:     dimensions,
-				EncodingFormat: &encodingFmt,
-				HTTPClient:     newHTTPClient(120 * time.Second),
-			})
-			if err != nil {
-				log.WithCtx(ctx).Error("NewEmbedder failed, init openai embed client err: %v", err)
-				return nil, err
-			}
-			clients = append(clients, &openaiClient{EmbeddingClient: cli})
+		cli, err := aclopenai.NewEmbeddingClient(ctx, &aclopenai.EmbeddingConfig{
+			APIKey:         cfg.APIKey,
+			BaseURL:        cfg.BaseURL,
+			Model:          cfg.Model,
+			Dimensions:     dimensions,
+			EncodingFormat: &encodingFmt,
+			HTTPClient:     newHTTPClient(120 * time.Second),
+		})
+		if err != nil {
+			log.WithCtx(ctx).Error("NewEmbedder failed, init openai embed client err: %v", err)
+			return nil, err
 		}
 		return &Embedder{
 			model:     cfg.Model,
 			dimension: cfg.Dimension,
-			client:    &poolClient{clients: clients},
+			client:    &openaiClient{EmbeddingClient: cli},
 		}, nil
 	default: // dashscope
 		var dimensions *int

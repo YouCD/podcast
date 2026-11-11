@@ -14,7 +14,7 @@ import (
 	"github.com/youcd/toolkit/log"
 )
 
-func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, llmInfo *types.LLMInfo, pgVector *pgvector.PgVector) ([]*types.RSSItem, error) {
+func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, pgVector *pgvector.PgVector) ([]*types.RSSItem, error) {
 	log.WithCtx(ctx).Infof("[阶段7/7] 开始保存到数据库，共 %d 条", len(rssItems))
 	var pgvectorData []*models.RssContent
 	var dbData []*models.RssContent
@@ -87,7 +87,7 @@ func save(ctx context.Context, rssItems []*types.RSSItem, cfg *types.RagConfig, 
 	}
 
 	for _, item := range pgvectorData {
-		err := saveToPgVector(ctx, llmInfo, item, cfg)
+		err := saveToPgVector(ctx, item, cfg)
 		if err != nil {
 			log.WithCtx(ctx).Errorf("保存RSS项目到 PgVector,item :%v  err: %v", item, err)
 		}

@@ -4,10 +4,10 @@ import "time"
 
 //nolint:tagliatelle
 type Embedding struct {
-	APIKey   string `yaml:"apiKey" json:"apiKey"`
-	Model    string `yaml:"model" json:"model"`
-	BaseURL  string `yaml:"baseURL" json:"baseURL"`
-	Provider string `yaml:"provider" json:"provider"` // dashscope | ollama | openai，为空时默认 dashscope
+	APIKey    string `yaml:"apiKey" json:"apiKey"`
+	Model     string `yaml:"model" json:"model"`
+	BaseURL   string `yaml:"baseURL" json:"baseURL"`
+	Provider  string `yaml:"provider" json:"provider"` // dashscope | ollama | openai，为空时默认 dashscope
 	Dimension int64  `yaml:"dimension" json:"dimension"`
 }
 

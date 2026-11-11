@@ -3,60 +3,28 @@ package rag
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"podcast/internal/ai/embedding"
 	"podcast/internal/ai/pgvector"
 
 	"podcast/internal/database/models"
-	"podcast/pkg"
 	"podcast/pkg/types"
 
-	"github.com/cloudwego/eino-ext/components/document/loader/file"
-	"github.com/cloudwego/eino-ext/components/model/qwen"
-	"github.com/cloudwego/eino-ext/libs/acl/openai"
-	"github.com/cloudwego/eino/components/document"
-	"github.com/cloudwego/eino/components/prompt"
-	"github.com/cloudwego/eino/schema"
-	"github.com/google/uuid"
 	"github.com/youcd/toolkit/log"
 	"gorm.io/gorm"
 )
 
-var systemPrompt = `
-# Role: Student Learning Assistant
-
-# Language: Chinese
-
-- When providing assistance:
-  • Be clear and concise
-  • Include practical examples when relevant
-  • Reference documentation when helpful
-  • Suggest improvements or next steps if applicable
-
-here's documents searched for you:
-==== doc start ====
-	  {documents}
-==== doc end ====
-`
-
-// Engine rag 引擎
+// Engine rag 引擎（负责 RSS 内容的分段向量化入库；
+// 语义检索由 agent 的 PgVectorSearchTool 直接查库，不经过引擎）
 type Engine struct {
-	Dimension  int64 // 嵌入维度
-	db         *gorm.DB
-	pgVector   *pgvector.PgVector
-	embedder   *embedding.Embedder
-	FileLoader *file.FileLoader     // 文件加载器
-	Splitter   document.Transformer // 文本分割器
-	LLM        *qwen.ChatModel      // 大模型
-	cfg        *types.RagConfig
+	Dimension int64 // 嵌入维度
+	pgVector  *pgvector.PgVector
+	embedder  *embedding.Embedder
+	cfg       *types.RagConfig
 }
 
 // NewEngine 创建 rag 引擎
-func NewEngine(ctx context.Context, llmInfo *types.LLMInfo, cfg *types.RagConfig) (*Engine, error) {
-	// 获取数据库连接
-	db := models.GetDb()
-
+func NewEngine(ctx context.Context, cfg *types.RagConfig) (*Engine, error) {
 	// 初始化 embedder
 	embedder, err := embedding.NewEmbedder(ctx, cfg.Embedding)
 	if err != nil {
@@ -72,195 +40,55 @@ func NewEngine(ctx context.Context, llmInfo *types.LLMInfo, cfg *types.RagConfig
 		return nil, fmt.Errorf("创建 rss_vectors 表失败: %w", err)
 	}
 
-	// 初始化 fileloader
-	fileLoader, err := file.NewFileLoader(ctx, &file.FileLoaderConfig{
-		UseNameAsID: true,
-		Parser:      nil,
-	})
-	if err != nil {
-		log.WithCtx(ctx).Errorf("NewEngine failed, init fileloader err: %v\n", err)
-		return nil, err
-	}
-
-	// 初始化 splitter
-	spliter, err := NewRecursiveSplitter(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// 初始化 llm
-	chatModel, err := pkg.NewChatModel(ctx, llmInfo, openai.ChatCompletionResponseFormatTypeText, true)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Engine{
-		Dimension:  cfg.PgVector.Dimension,
-		db:         db,
-		pgVector:   pgVector,
-		embedder:   embedder,
-		FileLoader: fileLoader,
-		Splitter:   spliter,
-		LLM:        chatModel,
-		cfg:        cfg,
+		Dimension: cfg.PgVector.Dimension,
+		pgVector:  pgVector,
+		embedder:  embedder,
+		cfg:       cfg,
 	}, nil
 }
 
-// AddFile 添加文件
-func (e *Engine) AddFile(ctx context.Context, filepath string) error {
-	// 加载文件
-	docs, err := e.FileLoader.Load(ctx, document.Source{
-		URI: filepath,
-	})
-	if err != nil {
-		log.WithCtx(ctx).Errorf("CreateFileIndex failed, load file err: %v\n", err)
-		return err
-	}
-	log.WithCtx(ctx).Infof("docs: %#v", docs)
-	// 分割文本
-	docs, err = e.Splitter.Transform(ctx, docs)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("CreateFileIndex failed, split text err: %v\n", err)
-		return err
-	}
-
-	// 为每个文档生成唯一 id
-	for _, d := range docs {
-		uuid, _ := uuid.NewUUID()
-		d.ID = uuid.String()
-		log.WithCtx(ctx).Errorf("docs: %#v", d.String())
-	}
-
-	// 存储索引
-	log.WithCtx(ctx).Infof("AddFile completed, docs: %d", len(docs))
-	return nil
-}
-
-// Query 查询
-func (e *Engine) Query(ctx context.Context, query string) (*schema.StreamReader[*schema.Message], error) {
-	log.WithCtx(ctx).Infof("Query 查询:  %s ", strings.TrimSpace(query))
-
-	// 生成查询向量
-	queryVector, err := e.embedder.CreateEmbeddings(ctx, query)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Query failed, create embedding err: %v", err)
-		return nil, err
-	}
-
-	// 使用 pgvector 进行语义搜索
-	docs, err := e.searchByVector(ctx, queryVector, 5)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Query failed, search by vector err: %v", err)
-		return nil, err
-	}
-
-	for _, doc := range docs {
-		log.WithCtx(ctx).Infow("Retrieve", "metaData", doc.Content)
-	}
-
-	// 生成 prompt
-	promptTempalte := prompt.FromMessages(schema.FString, []schema.MessagesTemplate{
-		schema.SystemMessage(systemPrompt),
-		schema.UserMessage("question: {content}"),
-	}...)
-	message, err := promptTempalte.Format(ctx, map[string]any{
-		"content":   query,
-		"documents": docs,
-	})
-	if err != nil {
-		log.WithCtx(ctx).Errorf("Query failed, format prompt err: %v\n", err)
-		return nil, err
-	}
-
-	// 调用 llm
-	return e.LLM.Stream(ctx, message)
-}
-
-// searchByVector 使用向量进行语义搜索
-func (e *Engine) searchByVector(ctx context.Context, queryVector []float32, limit int) ([]*schema.Document, error) {
-	collectionName := e.cfg.PgVector.RssCollection
-
-	query := fmt.Sprintf(`
-		SELECT id, title, md5, date, content, 1 - (embedding <=> $1::halfvec) as score
-		FROM %s
-		ORDER BY embedding <=> $1::halfvec
-		LIMIT $2
-	`, collectionName)
-
-	var results []struct {
-		ID      int     `gorm:"column:id"`
-		Title   string  `gorm:"column:title"`
-		MD5     string  `gorm:"column:md5"`
-		Date    string  `gorm:"column:date"`
-		Content string  `gorm:"column:content"`
-		Score   float32 `gorm:"column:score"`
-	}
-
-	err := e.pgVector.GetDB().Raw(query, vectorToString(queryVector), limit).Scan(&results).Error
-	if err != nil {
-		return nil, fmt.Errorf("搜索失败: %w", err)
-	}
-
-	var docs []*schema.Document
-	for _, r := range results {
-		doc := &schema.Document{
-			Content: r.Content,
-			MetaData: map[string]any{
-				"id":    r.ID,
-				"title": r.Title,
-				"md5":   r.MD5,
-				"score": r.Score,
-			},
-		}
-		docs = append(docs, doc)
-	}
-
-	return docs, nil
-}
-
-// AddRssContent 添加Rss内容
+// AddRssContent 添加Rss内容（分段向量化：每段最多 DefaultChunkSize 字，相邻段重叠 DefaultChunkOverlap 字）
 func (e *Engine) AddRssContent(ctx context.Context, rss *models.RssContent) error {
 	log.WithCtx(ctx).Infow("AddRssContent", "title", rss.Title)
 
-	// 生成内容向量
-	contentVector, err := e.embedder.CreateEmbeddings(ctx, rss.Content)
-	if err != nil {
-		log.WithCtx(ctx).Errorf("AddRssContent failed, create embedding err: %v", err)
-		return err
+	chunks := ChunkContent(rss.Content, DefaultChunkSize, DefaultChunkOverlap)
+	if len(chunks) == 0 {
+		log.WithCtx(ctx).Warnw("AddRssContent 无内容可索引", "title", rss.Title)
+		return nil
 	}
 
-	// 存储到 PostgreSQL
 	collectionName := e.cfg.PgVector.RssCollection
-	query := fmt.Sprintf(`
-		INSERT INTO %s (title, md5, date, content, embedding)
-		VALUES ($1, $2, $3, $4, $5::halfvec)
-		ON CONFLICT (md5) DO UPDATE SET
-			title = EXCLUDED.title,
-			content = EXCLUDED.content,
-			embedding = EXCLUDED.embedding,
-			date = EXCLUDED.date
-	`, collectionName)
+	db := e.pgVector.GetDB()
 
-	err = e.pgVector.GetDB().Exec(query, rss.Title, rss.MD5, rss.Date, rss.Content, vectorToString(contentVector)).Error
+	err := db.Transaction(func(tx *gorm.DB) error {
+		// 删除该文章的旧分段（重新向量化时分段数可能变化）
+		if err := tx.Exec(fmt.Sprintf(`DELETE FROM %s WHERE md5 = $1`, collectionName), rss.MD5).Error; err != nil {
+			return fmt.Errorf("删除旧分段失败: %w", err)
+		}
+
+		insertSQL := fmt.Sprintf(`
+			INSERT INTO %s (title, md5, chunk_index, date, content, embedding)
+			VALUES ($1, $2, $3, $4, $5, $6::halfvec)
+		`, collectionName)
+
+		for i, chunk := range chunks {
+			chunkVector, err := e.embedder.CreateEmbeddings(ctx, chunk)
+			if err != nil {
+				return fmt.Errorf("生成第 %d 段向量失败: %w", i+1, err)
+			}
+			if err := tx.Exec(insertSQL, rss.Title, rss.MD5, i, rss.Date, chunk, pgvector.VectorToString(chunkVector)).Error; err != nil {
+				return fmt.Errorf("插入第 %d 段失败: %w", i+1, err)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("插入数据失败: %w", err)
 	}
 
-	log.WithCtx(ctx).Infow("AddRssContent completed", "title", rss.Title)
+	log.WithCtx(ctx).Infow("AddRssContent completed", "title", rss.Title, "chunks", len(chunks))
 	return nil
-}
-
-// vectorToString 将向量转换为 PostgreSQL 格式
-func vectorToString(vector []float32) string {
-	result := "["
-	for i, v := range vector {
-		if i > 0 {
-			result += ","
-		}
-		result += fmt.Sprintf("%f", v)
-	}
-	result += "]"
-	return result
 }
 
 // Close 关闭引擎资源
@@ -270,17 +98,14 @@ func (e *Engine) Close(ctx context.Context) {
 	}
 }
 
-// rss_vectors 表结构（用于存储 RSS 内容和向量）
+// rss_vectors 表结构（用于存储 RSS 内容分段向量，一篇文章多个分段）
 // CREATE TABLE IF NOT EXISTS rss_vectors (
 //     id SERIAL PRIMARY KEY,
 //     title VARCHAR(255) NOT NULL,
-//     md5 VARCHAR(32) NOT NULL UNIQUE,
+//     md5 VARCHAR(32) NOT NULL,
+//     chunk_index INTEGER NOT NULL DEFAULT 0,
 //     date TIMESTAMP NOT NULL,
 //     content TEXT,
-//     vector vector(1024)
+//     embedding halfvec(N),
+//     UNIQUE (md5, chunk_index)
 // );
-
-// 修改 CreateCollection 以支持 content 字段
-func init() {
-	// 这个函数会在包加载时执行，但我们需要修改 CreateCollection 来添加 content 字段
-}

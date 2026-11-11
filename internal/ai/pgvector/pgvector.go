@@ -149,7 +149,7 @@ func (p *PgVector) DedupSearch(ctx context.Context, queryVector []float32, colle
 		LIMIT 1
 	`, collectionName)
 
-	err := p.db.Raw(query, vectorToString(queryVector), startT, endT).Scan(&results).Error
+	err := p.db.Raw(query, VectorToString(queryVector), startT, endT).Scan(&results).Error
 	if err != nil {
 		return false, "", 0, fmt.Errorf("搜索失败: %w", err)
 	}
@@ -210,6 +210,12 @@ func (p *PgVector) CreateCollection(ctx context.Context, collectionName string) 
 	}
 
 	if exists {
+		// 存量表迁移：补充分段列 chunk_index
+		if collectionName == "rss_vectors" {
+			if err := p.migrateRssVectorsChunking(ctx, collectionName); err != nil {
+				return err
+			}
+		}
 		log.WithCtx(ctx).Infof("集合 %s 已存在，跳过创建", collectionName)
 		return nil
 	}
@@ -222,10 +228,12 @@ func (p *PgVector) CreateCollection(ctx context.Context, collectionName string) 
 			CREATE TABLE %s (
 				id SERIAL PRIMARY KEY,
 				title VARCHAR(255) NOT NULL,
-				md5 VARCHAR(32) NOT NULL UNIQUE,
+				md5 VARCHAR(32) NOT NULL,
+				chunk_index INTEGER NOT NULL DEFAULT 0,
 				date TIMESTAMP NOT NULL,
 				content TEXT,
-				embedding halfvec(%d)
+				embedding halfvec(%d),
+				UNIQUE (md5, chunk_index)
 			)
 		`, collectionName, p.dimension)
 	} else {
@@ -257,6 +265,38 @@ func (p *PgVector) CreateCollection(ctx context.Context, collectionName string) 
 	return nil
 }
 
+// migrateRssVectorsChunking 为存量 rss_vectors 表补充分段支持：
+// 添加 chunk_index 列，把 md5 单列唯一约束改为 (md5, chunk_index) 复合唯一约束。
+// 存量整篇向量行保留为 chunk_index=0（重新向量化后会被删除替换）。
+func (p *PgVector) migrateRssVectorsChunking(ctx context.Context, collectionName string) error {
+	var hasChunkIndex bool
+	err := p.db.Raw(`SELECT EXISTS (
+		SELECT FROM information_schema.columns
+		WHERE table_name = ? AND column_name = 'chunk_index'
+	)`, collectionName).Scan(&hasChunkIndex).Error
+	if err != nil {
+		return fmt.Errorf("检查 chunk_index 列失败: %w", err)
+	}
+	if hasChunkIndex {
+		return nil
+	}
+
+	if err := p.db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD COLUMN chunk_index INTEGER NOT NULL DEFAULT 0`, collectionName)).Error; err != nil {
+		return fmt.Errorf("添加 chunk_index 列失败: %w", err)
+	}
+
+	// 删除旧的 md5 单列唯一约束（GORM/PostgreSQL 默认命名 <table>_<col>_key）
+	if err := p.db.Exec(fmt.Sprintf(`ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s_md5_key`, collectionName, collectionName)).Error; err != nil {
+		return fmt.Errorf("删除旧唯一约束失败: %w", err)
+	}
+	if err := p.db.Exec(fmt.Sprintf(`ALTER TABLE %s ADD CONSTRAINT %s_md5_chunk_index_key UNIQUE (md5, chunk_index)`, collectionName, collectionName)).Error; err != nil {
+		return fmt.Errorf("添加复合唯一约束失败: %w", err)
+	}
+
+	log.WithCtx(ctx).Infof("集合 %s 已迁移到分段结构（chunk_index）", collectionName)
+	return nil
+}
+
 // Insert 插入数据
 func (p *PgVector) Insert(ctx context.Context, date time.Time, md5, title string, vectors []float32, collectionName string) error {
 	query := fmt.Sprintf(`
@@ -264,7 +304,7 @@ func (p *PgVector) Insert(ctx context.Context, date time.Time, md5, title string
 		VALUES ($1, $2, $3, $4::halfvec)
 	`, collectionName)
 
-	err := p.db.Exec(query, title, md5, date, vectorToString(vectors)).Error
+	err := p.db.Exec(query, title, md5, date, VectorToString(vectors)).Error
 	if err != nil {
 		return fmt.Errorf("插入数据失败: %w", err)
 	}
@@ -273,8 +313,8 @@ func (p *PgVector) Insert(ctx context.Context, date time.Time, md5, title string
 	return nil
 }
 
-// vectorToString 将向量转换为 PostgreSQL 格式
-func vectorToString(vector []float32) string {
+// VectorToString 将向量转换为 PostgreSQL 格式（导出供 RAG 工具等外部调用）
+func VectorToString(vector []float32) string {
 	result := "["
 	for i, v := range vector {
 		if i > 0 {

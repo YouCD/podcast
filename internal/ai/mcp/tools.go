@@ -3,30 +3,25 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
-	"podcast/internal/ai/rag"
 	"podcast/internal/database/dao"
 	"podcast/internal/database/models"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/youcd/toolkit/log"
-	"go.uber.org/zap/buffer"
 )
 
 var (
 	searchRss = mcp.NewTool(
 		"news_search", mcp.WithDescription("功能：获取新闻内容，按类别与可选日期范围；不传日期时返回最近 24H 未读内容"),
 		mcp.WithString("categories", mcp.Description("新闻类别，逗号分隔支持多值；缺值时 24H 时 default 科技，日期范围时 全部类别")),
-		mcp.WithString("start_date", mcp.Description("开始日期 YYYY-MM-DD；缺值（且 end_date 也缺）时走最近 24H")),
-		mcp.WithString("end_date", mcp.Description("结束日期 YYYY-MM-DD；缺值时等于 start_date")),
+		mcp.WithString("start_date", mcp.Description("开始日期 YYYY-MM-DD；缺值（且 end_date 也缺）时走最近 24H；日期范围不能超过 31 天")),
+		mcp.WithString("end_date", mcp.Description("结束日期 YYYY-MM-DD；缺值时等于 start_date；与 start_date 间隔不能超过 31 天")),
 	)
 	rssCategories  = mcp.NewTool("news_categories", mcp.WithDescription("功能：获取新闻类别"))
 	getCurrentTime = mcp.NewTool("get_current_time", mcp.WithDescription(`功能：获取当前时间, 格式为: "2025-11-22 15:04:05"`))
-	// ragSearch      = mcp.NewTool("rag_search", mcp.WithDescription(`功能：从向量数据库中检索相关信息，支持语义搜索`),
-	//	mcp.WithString("query", mcp.Description("用户的问题")))
 )
 
 // ParseDate 解析 YYYY-MM-DD 或 YYYY-MM-DD HH:MM:SS 输入，按应用本地时区（config.go里 set time.Local）
@@ -96,8 +91,13 @@ func SearchRss(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 	if endOfDay.Before(startOfDay) {
 		return nil, fmt.Errorf("start_date must not be later than end_date")
 	}
+	// 模型规划宽范围是常见误规划，硬失败会触发无谓 replan；
+	// 自动收敛到以 end 为锚点的最近 31 天，并在结果头部注明
+	clamped := false
 	if endOfDay.Sub(startOfDay) > 31*24*time.Hour {
-		return nil, fmt.Errorf("日期范围超过 31 天，请缩小范围")
+		startOfDay = endOfDay.Add(-31*24*time.Hour + time.Second)
+		clamped = true
+		log.WithCtx(ctx).Infow("SearchRss 日期范围超过 31 天，自动收敛", "start", startOfDay, "end", endOfDay)
 	}
 
 	targets := splitCategories(categories)
@@ -119,7 +119,11 @@ func SearchRss(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolR
 
 	log.WithCtx(ctx).Debugw("SearchRss", "mode", "range", "start", startOfDay, "end", endOfDay,
 		"categories", targets, "count", len(posts))
-	return mcp.NewToolResultText(formatPosts(posts, true)), nil
+	result := formatPosts(posts, true)
+	if clamped {
+		result = fmt.Sprintf("注意：请求的日期范围超过 31 天，已自动收敛为最近 31 天（%s ~ %s）\n", startOfDay.Format("2006-01-02"), endOfDay.Format("2006-01-02")) + result
+	}
+	return mcp.NewToolResultText(result), nil
 }
 
 // splitCategories 逗号分隔类别串转 slice，filter 空白项
@@ -165,49 +169,4 @@ func RssCategories(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolRes
 
 func GetCurrentTime(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(time.Now().Format("2006-01-02 15:04:05")), nil
-}
-
-func (m *MCPServer) RagSearch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	query := request.GetString("query", "")
-
-	llmInfo := m.llmInfo
-	// 初始化 RAG 引擎
-	ragEngine, err := rag.NewEngine(ctx, llmInfo, m.ragCfg)
-	if err != nil {
-		return nil, fmt.Errorf("初始化 RAG 引擎失败：%w", err)
-	}
-	defer ragEngine.Close(ctx)
-	stream, err := ragEngine.Query(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("RAG查询失败: %w", err)
-	}
-
-	var buf buffer.Buffer
-	for {
-		select {
-		case <-ctx.Done():
-			// 客户端断开连接
-			log.WithCtx(ctx).Debug("Client disconnected")
-			return nil, nil
-		default:
-			msg, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF {
-					return mcp.NewToolResultText(buf.String()), nil
-				}
-				return nil, fmt.Errorf("Error reading stream: %w", err)
-			}
-
-			if msg != nil && msg.Content != "" {
-				if _, err := buf.WriteString(msg.Content); err != nil {
-					return nil, fmt.Errorf("Error writing to buffer: %w", err)
-				}
-			}
-
-			// 每次循环都检查连接状态
-			if ctx.Err() != nil {
-				return nil, nil
-			}
-		}
-	}
 }
